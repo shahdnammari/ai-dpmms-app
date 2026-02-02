@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}AI-DPMMS{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+</head>
+<body>
+  <div class="container">
+
+    <header class="nav ltr">
+      <div class="nav-left">
+        <div class="brand">
+          AI-DPMMS
+          <small>Medication Management</small>
+        </div>
+      </div>
+
+      <div class="nav-center">
+        {% if username %}
+          <span class="badge">Hello<b>{{ username }}</b></span>
+        {% endif %}
+        
+      </div>
+
+      <nav class="nav-links">
+        {% if active_page != "home page" %}
+          <a href="/">Home page</a>
+        {% endif %}
+        
+        {% if username %}
+          <a href="/logout">LogOut</a>
+        {% else %}
+
+        {% if active_page != "login page" and active_page != "edit medication page" %}
+          <a  href="/login">LogIn</a>
+        {% endif %}
+          
+          {% if active_page != "register page" and active_page != "edit medication page" %}
+            <a class="btn btn-secondary" href="/register">Register</a>
+          
+          {% endif %}
+        {% endif %}
+      </nav>
+    </header>
+
+    <main class="main">
+      {% block content %}{% endblock %}
+    </main>
+
+  </div>
+</body>
+</html>

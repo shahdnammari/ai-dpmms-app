@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Register | AI-DPMMS{% endblock %}
+
+{% block content %}
+<div class="auth-page ltr">
+  <h1 class="page-title">Register</h1>
+  <p class="page-subtitle">Create a new account.</p>
+
+  {% if error %}
+    <div class="alert">{{ error }}</div>
+  {% endif %}
+
+  <div class="card">
+    <form class="form" method="post" action="/register">
+      <input class="input" type="text" name="username" placeholder="Username" required>
+      <input class="input" type="password" name="password" placeholder="Password" required>
+
+      <button class="btn" type="submit">Register</button>
+    </form>
+
+    <hr class="sep">
+
+    <div class="actions">
+      <span class="badge">Already have an account?</span>
+      <a class="btn btn-secondary" href="/login">Go to Login</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Login | AI-DPMMS{% endblock %}
+
+{% block content %}
+  <h1 class="page-title">Login</h1>
+  <p class="page-subtitle">Sign in to access your medications.</p>
+
+  {% if error %}
+    <div class="alert">{{ error }}</div>
+  {% endif %}
+
+  <div class="card">
+    <form class="form" method="post" action="/login">
+      <input class="input" type="text" name="username" placeholder="Username" required>
+      <input class="input" type="password" name="password" placeholder="Password" required>
+
+      <button class="btn" type="submit">Login</button>
+    </form>
+
+    <hr class="sep">
+
+    <div class="actions">
+      <span class="badge">No account yet?</span>
+      <a class="btn btn-secondary" href="/register">Create Account</a>
+    </div>
+  </div>
+{% endblock %}

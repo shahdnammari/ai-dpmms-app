@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Home | AI-DPMMS{% endblock %}
+
+{% block content %}
+<div class="hero">
+  <div class="hero-content">
+
+    <h1 class="page-title">Welcome to AI-DPMMS</h1>
+    <p class="page-subtitle">
+      A simple demo system to manage your personal medications securely.
+    </p>
+
+    <hr class="sep">
+
+    <h3>Get started</h3>
+    {% if username %}
+      <div class="hero-actions">
+        <a class="btn" href="/medications-ui">Go to My Medications</a>
+      </div>
+    {% else %}
+      <p>Please login or create a new account.</p>
+      <div class="hero-actions">
+        <a class="btn" href="/login">Login</a>
+        <a class="btn btn-secondary" href="/register">Register</a>
+      </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

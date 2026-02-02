@@ -1,0 +1,262 @@
+:root{
+  --bg:#f6f7fb;
+  --card:#ffffff;
+  --text:#111827;
+  --muted:#6b7280;
+  --primary:#2563eb;
+  --primary-hover:#1d4ed8;
+  --danger:#dc2626;
+  --danger-hover:#b91c1c;
+  --border:#e5e7eb;
+  --shadow: 0 10px 25px rgba(0,0,0,.06);
+  --radius:14px;
+  --max: 980px;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans Hebrew", sans-serif;
+}
+
+*{ box-sizing:border-box; }
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  direction: ltr;
+}
+
+input[type="text"],
+input[type="password"] {
+  direction: ltr;
+  text-align: left;
+}
+
+a{ color:var(--primary); text-decoration:none; }
+a:hover{ text-decoration:underline; }
+
+.container{
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 18px;
+}
+
+.nav{
+  background: var(--card);
+  border:1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.brand{
+  font-weight:700;
+  letter-spacing:.2px;
+}
+.brand small{
+  display:block;
+  font-weight:500;
+  color: var(--muted);
+  margin-top:2px;
+}
+
+.nav-links{
+  display:flex;
+  gap:14px;
+  align-items:center;
+  flex-wrap:wrap;
+}
+
+.main{
+  margin-top: 16px;
+  background: var(--card);
+  border:1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px;
+}
+
+.page-title{
+  margin: 0 0 6px 0;
+  font-size: 22px;
+}
+.page-subtitle{
+  margin: 0 0 18px 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:14px;
+}
+@media (max-width: 760px){
+  .grid{ grid-template-columns: 1fr; }
+}
+
+.card{
+  border:1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  background: #fff;
+}
+
+.card h3{
+  margin:0 0 10px 0;
+  font-size: 16px;
+}
+
+.form{
+  display:grid;
+  gap:10px;
+}
+
+.row{
+  display:grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap:10px;
+}
+@media (max-width: 760px){
+  .row{ grid-template-columns: 1fr; }
+}
+
+.input{
+  width:100%;
+  padding: 10px 12px;
+  border:1px solid var(--border);
+  border-radius: 10px;
+  outline:none;
+  background:#fff;
+}
+.input:focus{
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(59,130,246,.18);
+}
+
+.btn{
+  border:none;
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor:pointer;
+  font-weight:600;
+  background: var(--primary);
+  color:white;
+  transition:.15s;
+}
+.btn:hover{ background: var(--primary-hover); }
+
+.btn-secondary{
+  background:#111827;
+}
+.btn-secondary:hover{ background:#0b1220; }
+
+.btn-danger{
+  background: var(--danger);
+}
+.btn-danger:hover{ background: var(--danger-hover); }
+
+.list{
+  margin:0;
+  padding:0;
+  list-style:none;
+  display:grid;
+  gap:10px;
+}
+
+.item{
+  border:1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+}
+
+.item .meta{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+.badge{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.actions{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+
+.inline{
+  display:inline;
+}
+
+hr.sep{
+  border:none;
+  border-top:1px solid var(--border);
+  margin: 14px 0;
+}
+
+.alert{
+  padding: 10px 12px;
+  border-radius: 12px;
+  border:1px solid var(--border);
+  background:#fff7ed;
+  color:#9a3412;
+  margin-bottom: 12px;
+}
+
+.hero {
+  min-height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.hero-content {
+  max-width: 600px;
+}
+
+.hero-actions {
+  margin-top: 16px;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+/* Force English layout */
+.ltr {
+  direction: ltr;
+  text-align: left;
+}
+
+/* Auth pages layout */
+.auth-page {
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.auth-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-start;
+}
+
+/* Ensure headings follow LTR */
+.ltr .page-title,
+.ltr .page-subtitle,
+.ltr h1,
+.ltr h2,
+.ltr h3,
+.ltr p {
+  text-align: left;
+}

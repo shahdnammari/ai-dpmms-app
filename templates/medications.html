@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}My Medications | AI-DPMMS{% endblock %}
+
+{% block content %}
+  <h1 class="page-title">My Medications</h1>
+  <p class="page-subtitle">Manage your medication list.</p>
+
+  <div class="card">
+    <h3>Add medication</h3>
+
+    <form class="form" method="post" action="/medications-ui">
+      <div class="row">
+        <input class="input" name="name" placeholder="Medication name" required>
+        <input class="input" name="dose" placeholder="Dose" required>
+        <input class="input" name="time" placeholder="Time (e.g., 08:30)" required>
+        <button class="btn" type="submit">Add</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card" style="margin-top:14px;">
+    <h3>Your list</h3>
+
+    {% if medications|length == 0 %}
+      <p class="page-subtitle">No medications yet.</p>
+    {% else %}
+      <ul class="list">
+        {% for med in medications %}
+          <li class="item">
+            <div class="meta">
+              <b>{{ med.name }}</b>
+              <span class="badge">Dose: {{ med.dose }} • Time: {{ med.time }}</span>
+            </div>
+
+            <div class="actions">
+              <a class="btn btn-secondary" href="/medications-ui/{{ med.id }}/edit">Edit</a>
+
+              <form class="inline" method="post" action="/medications-ui/{{ med.id }}/delete">
+                <button class="btn btn-danger" type="submit">Delete</button>
+              </form>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </div>
+{% endblock %}

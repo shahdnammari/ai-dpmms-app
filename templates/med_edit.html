@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Edit Medication | AI-DPMMS{% endblock %}
+
+{% block content %}
+<h2 class="page-title">Edit Medication</h2>
+<p class="page-subtitle">Update the details and save</p>
+
+<div class="card">
+  <form class="form" method="post" action="/medications-ui/{{ med.id }}/edit">
+    <input class="input" name="name" value="{{ med.name }}" required>
+    <input class="input" name="dose" value="{{ med.dose }}" required>
+    <input class="input" name="time" value="{{ med.time }}" required>
+
+    <div class="actions">
+      <button class="btn" type="submit">Save</button>
+      <a class="btn btn-secondary" href="/medications-ui">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
