@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, Request, Form, HTTPException, Query
+from fastapi import FastAPI, Depends, Request, Form, HTTPException
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -6,11 +6,25 @@ from models import User, Medication
 from auth import hash_password, verify_password
 from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.orm import Session
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordRequestForm
+
 
 from db import Base, engine, SessionLocal
 from schemas import MedicationCreate, MedicationOut
+from schemas import RegisterRequest, LoginRequest, TokenResponse
+from jwt_auth import create_access_token, authenticate_user, get_current_user
 
 app = FastAPI(title="AI-DPMMS Local API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
@@ -44,10 +58,12 @@ def health():
 
 
 @app.get("/medications", response_model=list[MedicationOut])
-def list_medications(user_id: int = Query(...), db: Session = Depends(get_db)):
+def list_medications(db: Session = Depends(get_db),
+                     current_user: User = Depends(get_current_user)
+                     ):
     return (
         db.query(Medication)
-        .filter(Medication.user_id == user_id)
+        .filter(Medication.user_id == current_user.id)
         .order_by(Medication.id.desc())
         .all()
     )
@@ -55,13 +71,17 @@ def list_medications(user_id: int = Query(...), db: Session = Depends(get_db)):
 
 @app.post("/medications", response_model=MedicationOut)
 def create_medication(payload: MedicationCreate,
-                      db: Session = Depends(get_db)):
+                      db: Session = Depends(get_db),
+                      current_user: User = Depends(get_current_user)
+                      ):
+
     med = Medication(
         name=payload.name,
         dose=payload.dose,
         time=payload.time,
-        user_id=payload.user_id
+        user_id=current_user.id
         )
+
     db.add(med)
     db.commit()
     db.refresh(med)
@@ -182,18 +202,57 @@ def home_page(request: Request):
 
 
 @app.post("/api/register")
-def register(username: str = Form(...),
-             password: str = Form(...),
-             db: Session = Depends(get_db)
-             ):
-    existing = db.query(User).filter(User.username == username).first()
+def api_register(playload: RegisterRequest,
+                 db: Session = Depends(get_db)
+                 ):
+    existing = db.query(User).filter(
+        User.username == playload.username
+        ).first()
+
     if existing:
         raise HTTPException(status_code=400, detail="Username already exists")
 
-    user = User(username=username, password_hash=hash_password(password))
+    user = User(
+        username=playload.username,
+        password_hash=hash_password(playload.password),
+        role=playload.role
+        )
+
     db.add(user)
     db.commit()
-    return {"registered": True}
+    db.refresh(user)
+    return {"registered": True, "user_id": user.id}
+
+
+@app.post("/api/login", response_model=TokenResponse)
+def api_login(playload: LoginRequest, db: Session = Depends(get_db)):
+    user = authenticate_user(db, playload.username, playload.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    token = create_access_token({"sub": str(user.id), "role": user.role})
+    return {"access_token": token, "token_type": "bearer"}
+
+
+@app.get("/api/me")
+def api_me(current_user: User = Depends(get_current_user)):
+    return {
+        "id": current_user.id,
+        "username": current_user.username,
+        "role": current_user.role
+    }
+
+
+@app.post("/token", response_model=TokenResponse)
+def token(form_data: OAuth2PasswordRequestForm = Depends(),
+          db: Session = Depends(get_db)
+          ):
+    user = authenticate_user(db, form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    access_token = create_access_token({"sub": str(user.id)})
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
 @app.post("/login")
