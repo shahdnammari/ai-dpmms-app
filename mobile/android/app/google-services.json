@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "973328939824",
+    "project_id": "ai-dpmms",
+    "storage_bucket": "ai-dpmms.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:973328939824:android:314b045af2d5ea993e26f5",
+        "android_client_info": {
+          "package_name": "com.example.ai_dpmms_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBPdVntpVta1WKt8tIb5LEBstCO3e0FJYU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
