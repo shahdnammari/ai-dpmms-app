@@ -4,8 +4,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'register_screen.dart';
 import 'role_select_screen.dart';
-import 'patient_home_screen.dart';
-import 'doctor_home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final UserRole role; // UI label + pass to register
@@ -38,7 +36,6 @@ class _LoginScreenState extends State<LoginScreen> {
     final email = _emailCtrl.text.trim();
     final password = _passCtrl.text;
 
-    // Basic validation
     if (email.isEmpty || password.isEmpty) {
       setState(() {
         _loading = false;
@@ -55,9 +52,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final uid = cred.user!.uid;
 
-      // Read profile from Firestore (source of truth)
-      final doc =
-          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      // Verify profile exists + has valid role (AuthGate will route)
+      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
 
       if (!doc.exists) {
         await FirebaseAuth.instance.signOut();
@@ -67,40 +63,24 @@ class _LoginScreenState extends State<LoginScreen> {
       final data = doc.data();
       final roleStr = (data?['role'] as String?)?.toLowerCase();
 
-      if (roleStr == null) {
+      if (roleStr == null || (roleStr != 'patient' && roleStr != 'doctor')) {
         await FirebaseAuth.instance.signOut();
-        throw Exception("Role missing in Firestore profile. Please register again.");
+        throw Exception("Invalid role in Firestore profile. Please register again.");
       }
 
       if (!mounted) return;
 
-      // Optional: if user selected a different role screen than stored role
-      final selectedRole = widget.role.name; // 'patient' or 'doctor'
+      // Optional notice if user opened wrong role login screen
+      final selectedRole = widget.role.name;
       if (roleStr != selectedRole) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              "You are registered as ${roleStr.toUpperCase()}, redirecting...",
-            ),
-          ),
+          SnackBar(content: Text("You are registered as ${roleStr.toUpperCase()}.")),
         );
       }
 
-      // Navigate by Firestore role
-      if (roleStr == 'patient') {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const PatientHomeScreen()),
-        );
-      } else if (roleStr == 'doctor') {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const DoctorHomeScreen()),
-        );
-      } else {
-        await FirebaseAuth.instance.signOut();
-        throw Exception("Unknown role: $roleStr");
-      }
+      // ✅ No manual routing — AuthGate will redirect automatically
+      Navigator.pop(context);
+
     } on FirebaseAuthException catch (e) {
       setState(() => _error = _friendlyAuthError(e));
     } catch (e) {
@@ -135,7 +115,18 @@ class _LoginScreenState extends State<LoginScreen> {
         widget.role == UserRole.patient ? "Patient Login" : "Doctor Login";
 
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: AppBar(
+        title: Text(title),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.pop(
+              context, 
+              MaterialPageRoute(builder: (_) => const RoleSelectScreen()),
+            );
+          },
+          ),
+        ),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),

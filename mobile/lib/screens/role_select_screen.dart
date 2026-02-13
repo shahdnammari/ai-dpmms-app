@@ -29,7 +29,7 @@ class RoleSelectScreen extends StatelessWidget {
                   height: 52,
                   child: ElevatedButton.icon(
                     onPressed: () {// PATIENT
-                      Navigator.push(
+                      Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(
                           builder: (_) => LoginScreen(role: UserRole.patient),
@@ -47,7 +47,7 @@ class RoleSelectScreen extends StatelessWidget {
                   height: 52,
                   child: ElevatedButton.icon(
                     onPressed: () { // DOCTOR
-                      Navigator.push(
+                      Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(
                           builder: (_) => LoginScreen(role: UserRole.doctor),

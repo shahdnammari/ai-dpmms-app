@@ -3,8 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'role_select_screen.dart';
-import 'patient_home_screen.dart';
 import 'doctor_home_screen.dart';
+import 'patient/patient_shell.dart';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -22,7 +22,7 @@ class AuthGate extends StatelessWidget {
 
     final role = (doc.data()?['role'] as String?)?.toLowerCase();
 
-    if (role == 'patient') return const PatientHomeScreen();
+    if (role == 'patient') return const PatientShell();
     if (role == 'doctor') return const DoctorHomeScreen();
 
     await FirebaseAuth.instance.signOut();

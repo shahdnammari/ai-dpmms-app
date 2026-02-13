@@ -16,6 +16,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
+  final _usernameCtrl = TextEditingController();
 
   bool _loading = false;
   String? _error;
@@ -25,6 +26,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailCtrl.dispose();
     _passCtrl.dispose();
     _confirmCtrl.dispose();
+    _usernameCtrl.dispose();
     super.dispose();
   }
 
@@ -35,11 +37,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     final email = _emailCtrl.text.trim();
+    final username = _usernameCtrl.text.trim();
     final password = _passCtrl.text;
     final confirm = _confirmCtrl.text;
 
     // Basic validation
-    if (email.isEmpty || password.isEmpty || confirm.isEmpty) {
+    if (email.isEmpty || password.isEmpty || confirm.isEmpty || username.isEmpty) {
       setState(() {
         _loading = false;
         _error = "Please fill all fields.";
@@ -68,9 +71,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       // Create user profile in Firestore (role is stored here)
       await FirebaseFirestore.instance.collection('users').doc(uid).set({
         'email': email,
+        'username': username,
         'role': widget.role.name, // 'patient' or 'doctor'
         'createdAt': FieldValue.serverTimestamp(),
       });
+
+      await cred.user!.updateDisplayName(username);
 
       if (!mounted) return;
 
@@ -115,7 +121,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
         widget.role == UserRole.patient ? "Patient Register" : "Doctor Register";
 
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: AppBar(title: Text(title),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.pop(
+              context,
+              MaterialPageRoute(builder: (_) => const RoleSelectScreen()),
+            );
+          },
+        ),
+      ),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
@@ -124,6 +140,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                TextField(
+                  controller: _usernameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: "Username",
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 TextField(
                   controller: _emailCtrl,
                   keyboardType: TextInputType.emailAddress,
