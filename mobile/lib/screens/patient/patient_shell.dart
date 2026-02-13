@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../role_select_screen.dart';
 import 'patient_home_tab.dart';
 import 'medications_list_screen.dart';
-
-import '../../screens/patient/medication_form_screen.dart';
+import 'medication_form_screen.dart';
 
 class PatientShell extends StatefulWidget {
   const PatientShell({super.key});
@@ -17,6 +17,17 @@ class PatientShell extends StatefulWidget {
 class _PatientShellState extends State<PatientShell> {
   int _index = 0;
 
+  String _sectionTitle(int index) {
+    switch (index) {
+      case 0: return 'Home';
+      case 1: return 'Medications';
+      case 2: return 'Notifications';
+      case 3: return 'Reports / History';
+      case 4: return 'AI';
+      default: return '';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
@@ -24,32 +35,63 @@ class _PatientShellState extends State<PatientShell> {
 
     final pages = <Widget>[
       const PatientHomeTab(),
-      MedicationsListScreen(),
+      const MedicationsListScreen(),
       const _PlaceholderPage(title: 'Notifications (soon)'),
       const _PlaceholderPage(title: 'Reports / History (soon)'),
       const _PlaceholderPage(title: 'AI (soon)'),
     ];
 
     return Scaffold(
+      appBar: AppBar(
+        title: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+          stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
+          builder: (context, snap) {
+            final data = snap.data?.data();
+            final username =
+                (data?['username'] as String?) ??
+                (data?['displayName'] as String?) ??
+                (user.email?.split('@').first ?? 'Patient');
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Welcome $username', style: const TextStyle(fontSize: 18)),
+                const SizedBox(height: 2),
+                Text(
+                  _sectionTitle(_index),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+              ],
+            );
+          },
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+            },
+          ),
+        ],
+      ),
+
       body: pages[_index],
 
-      // ✅ زر + كبير ثابت بكل الصفحات
-      
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       floatingActionButton: SizedBox(
         height: 64,
         width: 64,
         child: FloatingActionButton(
-            onPressed: () {
+          onPressed: () {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => MedicationFormScreen(uid: user.uid)),
             );
           },
-          child: const Icon(Icons.add),
+          child: const Icon(Icons.add, size: 30),
         ),
       ),
 
-      // ✅ Bottom Navigation ثابت بكل الصفحات
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
@@ -65,16 +107,12 @@ class _PatientShellState extends State<PatientShell> {
   }
 }
 
-
 class _PlaceholderPage extends StatelessWidget {
   final String title;
   const _PlaceholderPage({required this.title});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Center(child: Text(title)),
-    );
+    return Center(child: Text(title));
   }
 }
