@@ -1,3 +1,4 @@
+// medication_form_screen.dart
 import 'package:flutter/material.dart';
 import '../../models/medication.dart';
 import '../../services/medications_service.dart';
@@ -5,11 +6,13 @@ import '../../services/medications_service.dart';
 class MedicationFormScreen extends StatefulWidget {
   final String uid;
   final Medication? existing;
+  final DateTime effectiveDate;
 
   const MedicationFormScreen({
     super.key,
     required this.uid,
     this.existing,
+    required this.effectiveDate,
   });
 
   @override
@@ -28,15 +31,25 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
   bool _isActive = true;
   bool _saving = false;
 
+  final List<TimeOfDay> _times = [];
+
   @override
   void initState() {
     super.initState();
     final e = widget.existing;
+
     _name = TextEditingController(text: e?.name ?? '');
     _dosage = TextEditingController(text: e?.dosage ?? '');
     _freq = TextEditingController(text: (e?.frequencyPerDay ?? 1).toString());
     _notes = TextEditingController(text: e?.notes ?? '');
     _isActive = e?.isActive ?? true;
+
+    final existingTimes = e?.times ?? const <String>[];
+    for (final t in existingTimes) {
+      final parsed = _parseTime(t);
+      if (parsed != null) _times.add(parsed);
+    }
+    _times.sort(_compareTime);
   }
 
   @override
@@ -48,10 +61,67 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
     super.dispose();
   }
 
+  int _compareTime(TimeOfDay a, TimeOfDay b) {
+    final aMin = a.hour * 60 + a.minute;
+    final bMin = b.hour * 60 + b.minute;
+    return aMin.compareTo(bMin);
+  }
+
+  String _formatTime(TimeOfDay t) {
+    final hh = t.hour.toString().padLeft(2, '0');
+    final mm = t.minute.toString().padLeft(2, '0');
+    return '$hh:$mm';
+  }
+
+  TimeOfDay? _parseTime(String s) {
+    final parts = s.split(':');
+    if (parts.length != 2) return null;
+    final h = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    if (h == null || m == null) return null;
+    if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+    return TimeOfDay(hour: h, minute: m);
+  }
+
+  Future<void> _addTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+    );
+    if (picked == null) return;
+
+    final exists = _times.any((t) => t.hour == picked.hour && t.minute == picked.minute);
+    if (exists) return;
+
+    setState(() {
+      _times.add(picked);
+      _times.sort(_compareTime);
+    });
+  }
+
+  void _removeTime(TimeOfDay t) {
+    setState(() {
+      _times.removeWhere((x) => x.hour == t.hour && x.minute == t.minute);
+    });
+  }
+
+  DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_saving) return;
+
+    final okForm = _formKey.currentState?.validate() ?? false;
+    if (!okForm) return;
+
+    if (_times.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please add at least one time.')),
+      );
+      return;
+    }
 
     final freq = int.tryParse(_freq.text.trim()) ?? 1;
+    final times = _times.map(_formatTime).toList();
 
     setState(() => _saving = true);
     try {
@@ -61,19 +131,35 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
           name: _name.text,
           dosage: _dosage.text,
           frequencyPerDay: freq,
-          notes: _notes.text.isEmpty ? null : _notes.text,
+          notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+          times: times,
+          startDate: _dateOnly(widget.effectiveDate),
+          endDate: null,
+          isActive: _isActive,
         );
       } else {
-        await _service.updateMedication(
+        await _service.updateMedicationVersioned(
           uid: widget.uid,
-          medId: widget.existing!.id,
+          oldMed: widget.existing!,
+          effectiveDate: _dateOnly(widget.effectiveDate),
           name: _name.text,
           dosage: _dosage.text,
           frequencyPerDay: freq,
-          notes: _notes.text.isEmpty ? null : _notes.text,
+          notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+          times: times,
           isActive: _isActive,
         );
       }
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(widget.existing == null ? 'Medication created ✅' : 'Medication updated ✅'),
+        ),
+      );
+
+      await Future.delayed(const Duration(milliseconds: 350));
       if (mounted) Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
@@ -85,61 +171,153 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
     }
   }
 
+  InputDecoration _inputDecoration(String label, {String? hint, Widget? prefixIcon}) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      prefixIcon: prefixIcon,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.existing != null;
 
     return Scaffold(
-      appBar: AppBar(title: Text(isEdit ? 'Edit Medication' : 'Add Medication')),
+      appBar: AppBar(
+        title: Text(isEdit ? 'Edit Medication' : 'Add Medication'),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
           child: ListView(
             children: [
-              TextFormField(
-                controller: _name,
-                decoration: const InputDecoration(labelText: 'Medication name'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _dosage,
-                decoration: const InputDecoration(labelText: 'Dosage (e.g., 500mg)'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _freq,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Times per day'),
-                validator: (v) {
-                  final n = int.tryParse((v ?? '').trim());
-                  if (n == null || n <= 0 || n > 24) return 'Enter 1..24';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _notes,
-                decoration: const InputDecoration(labelText: 'Notes (optional)'),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 12),
-
-              if (isEdit)
-                SwitchListTile(
-                  title: const Text('Active'),
-                  value: _isActive,
-                  onChanged: (v) => setState(() => _isActive = v),
+              Card(
+                elevation: 1,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    children: [
+                      TextFormField(
+                        controller: _name,
+                        decoration: _inputDecoration('Medication name', prefixIcon: const Icon(Icons.medication)),
+                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _dosage,
+                        decoration: _inputDecoration('Dosage', hint: 'e.g., 500mg'),
+                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _freq,
+                        keyboardType: TextInputType.number,
+                        decoration: _inputDecoration('Times per day'),
+                        validator: (v) {
+                          final n = int.tryParse((v ?? '').trim());
+                          if (n == null || n <= 0 || n > 24) return 'Enter 1..24';
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _saving ? null : _save,
-                child: _saving
-                    ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                    : Text(isEdit ? 'Update' : 'Create'),
+              ),
+              const SizedBox(height: 12),
+              Card(
+                elevation: 1,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Medication times',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final t in _times)
+                            InputChip(
+                              label: Text(_formatTime(t)),
+                              onDeleted: () => _removeTime(t),
+                              deleteIcon: const Icon(Icons.close),
+                            ),
+                          ActionChip(
+                            label: const Text('Add time'),
+                            avatar: const Icon(Icons.add),
+                            onPressed: _addTime,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _times.isEmpty ? 'No times selected' : 'Selected: ${_times.map(_formatTime).join(', ')}',
+                        style: TextStyle(color: Colors.grey.shade700),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Card(
+                elevation: 1,
+                child: ExpansionTile(
+                  title: const Text('Notes (optional)'),
+                  childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  children: [
+                    TextFormField(
+                      controller: _notes,
+                      maxLines: 3,
+                      decoration: _inputDecoration('Notes'),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (isEdit)
+                Card(
+                  elevation: 1,
+                  child: SwitchListTile(
+                    title: const Text('Active'),
+                    value: _isActive,
+                    onChanged: (v) => setState(() => _isActive = v),
+                  ),
+                ),
+              const SizedBox(height: 90),
+            ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _saving ? null : () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton(
+                  onPressed: _saving ? null : _save,
+                  child: _saving
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(isEdit ? 'Update' : 'Create'),
+                ),
               ),
             ],
           ),

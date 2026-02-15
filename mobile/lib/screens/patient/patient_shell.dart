@@ -85,7 +85,11 @@ class _PatientShellState extends State<PatientShell> {
           onPressed: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => MedicationFormScreen(uid: user.uid)),
+              MaterialPageRoute(builder: (_) => MedicationFormScreen(
+                uid: user.uid,
+                effectiveDate: DateTime.now(),
+                )
+              ),
             );
           },
           child: const Icon(Icons.add, size: 30),
