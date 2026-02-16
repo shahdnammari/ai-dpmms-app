@@ -8,6 +8,7 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import '../../models/medication.dart';
 import '../../services/medications_service.dart';
 import 'medication_form_screen.dart';
+import '/widgets/app_motion.dart';
 
 class MedicationsListScreen extends StatefulWidget {
   const MedicationsListScreen({super.key});
@@ -318,9 +319,11 @@ class _MedicationsListScreenState extends State<MedicationsListScreen> {
                                   const SizedBox(height: 8),
                                   ClipRRect(
                                     borderRadius: BorderRadius.circular(10),
-                                    child: LinearProgressIndicator(
-                                      value: progress,
-                                      minHeight: 10,
+                                    child: TweenAnimationBuilder<double>(
+                                      tween: Tween(begin: 0, end: progress),
+                                      duration: const Duration(milliseconds: 500),
+                                      curve: Curves.easeOutCubic,
+                                      builder: (_, v, __) => LinearProgressIndicator(value: v, minHeight: 10),
                                     ),
                                   ),
                                   const SizedBox(height: 8),
@@ -359,137 +362,142 @@ class _MedicationsListScreenState extends State<MedicationsListScreen> {
                                 final showTime = time.trim().isNotEmpty;
 
                                 // -------- Base Tile --------
-                                final baseTile = Card(
-                                  margin: const EdgeInsets.symmetric(vertical: 8),
-                                  elevation: 2,
-                                  child: ListTile(
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                    title: Text(
-                                      m.name,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                        decoration: checked ? TextDecoration.lineThrough : null,
-                                        color: checked ? Colors.green : null,
-                                      ),
-                                    ),
-                                    subtitle: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const SizedBox(height: 4),
-                                        Text('${m.dosage} • ${m.frequencyPerDay} / day'),
-                                        if (showTime)
-                                          Padding(
-                                            padding: const EdgeInsets.only(top: 6),
-                                            child: Text(
-                                              'Time: $time',
-                                              style: const TextStyle(fontWeight: FontWeight.w600),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                    trailing: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Checkbox(
-                                          value: checked,
-                                          onChanged: canToggle
-                                              ? (v) => _toggleChecked(user.uid, _selectedDay, m.id, time, v ?? false)
-                                              : null,
+                                final baseTile = AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  curve: Curves.easeOut,
+                                  decoration: BoxDecoration(
+                                    color: checked ? Colors.green.withValues(alpha: 0.06) : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Card(
+                                    margin: const EdgeInsets.symmetric(vertical: 8),
+                                    elevation: 2,
+                                    child: ListTile(
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                      title: Text(
+                                        m.name,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          decoration: checked ? TextDecoration.lineThrough : null,
+                                          color: checked ? Colors.green : null,
                                         ),
-
-                                        if (canEditDelete)
-                                          PopupMenuButton<String>(
-                                            icon: const Icon(Icons.more_vert),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      subtitle: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const SizedBox(height: 4),
+                                          Text('${m.dosage} • ${m.frequencyPerDay} / day'),
+                                          if (showTime)
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 6),
+                                              child: Text(
+                                                'Time: $time',
+                                                style: const TextStyle(fontWeight: FontWeight.w600),
+                                              ),
                                             ),
-                                            onSelected: (value) async {
-                                              if (value == 'edit') {
-                                                _goEdit(context, user.uid, m, _selectedDay);
-                                              } else if (value == 'delete') {
-                                                final ok = await _confirmDelete(context, m.name);
-                                                if (!ok) return;
-
-                                                await _service.deleteMedicationForFuture(
-                                                  uid: user.uid,
-                                                  med: m,
-                                                  effectiveDate: _selectedDay,
-                                                );
-                                              } else if (value == 'add') {
-                                                Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                    builder: (_) => MedicationFormScreen(
-                                                      uid: user.uid,
-                                                      effectiveDate: _selectedDay,
-                                                    ),
-                                                  ),
-                                                );
-                                              }
-                                            },
-                                            itemBuilder: (context) => [
-                                              const PopupMenuItem(
-                                                value: 'edit',
-                                                child: Row(
-                                                  children: [
-                                                    Icon(Icons.edit),
-                                                    SizedBox(width: 12),
-                                                    Text('Edit'),
-                                                  ],
-                                                ),
-                                              ),
-                                              
-                                              const PopupMenuItem(
-                                                value: 'delete',
-                                                child: Row(
-                                                  children: [
-                                                    Icon(Icons.delete, color: Colors.red),
-                                                    SizedBox(width: 12),
-                                                    Text(
-                                                      'Delete',
-                                                      style: TextStyle(color: Colors.red),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
+                                        ],
+                                      ),
+                                      trailing: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Checkbox(
+                                            value: checked,
+                                            onChanged: canToggle
+                                                ? (v) => _toggleChecked(user.uid, _selectedDay, m.id, time, v ?? false)
+                                                : null,
                                           ),
-                                      ],
+                                          if (canEditDelete)
+                                            PopupMenuButton<String>(
+                                              icon: const Icon(Icons.more_vert),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                              onSelected: (value) async {
+                                                if (value == 'edit') {
+                                                  _goEdit(context, user.uid, m, _selectedDay);
+                                                } else if (value == 'delete') {
+                                                  final ok = await _confirmDelete(context, m.name);
+                                                  if (!ok) return;
+                                                  await _service.deleteMedicationForFuture(
+                                                    uid: user.uid,
+                                                    med: m,
+                                                    effectiveDate: _selectedDay,
+                                                  );
+                                                } else if (value == 'add') {
+                                                  Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder: (_) => MedicationFormScreen(
+                                                        uid: user.uid,
+                                                        effectiveDate: _selectedDay,
+                                                      ),
+                                                    ),
+                                                  );
+                                                }
+                                              },
+                                              itemBuilder: (context) => const [
+                                                PopupMenuItem(
+                                                  value: 'edit',
+                                                  child: Row(
+                                                    children: [
+                                                      Icon(Icons.edit),
+                                                      SizedBox(width: 12),
+                                                      Text('Edit'),
+                                                    ],
+                                                  ),
+                                                ),
+                                                PopupMenuItem(
+                                                  value: 'delete',
+                                                  child: Row(
+                                                    children: [
+                                                      Icon(Icons.delete, color: Colors.red),
+                                                      SizedBox(width: 12),
+                                                      Text('Delete', style: TextStyle(color: Colors.red)),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 );
 
-                                // -------- Swipe Only Delete (LEFT swipe) --------
-                                if (!canEditDelete) {
-                                  return baseTile;
+                                // -------- Build final tile (maybe slidable) --------
+                                Widget tile = baseTile;
+
+                                // Swipe delete only when allowed (today/future)
+                                if (canEditDelete) {
+                                  tile = Slidable(
+                                    key: ValueKey(doseKey),
+                                    endActionPane: ActionPane(
+                                      motion: const DrawerMotion(),
+                                      extentRatio: 0.25,
+                                      children: [
+                                        SlidableAction(
+                                          onPressed: (_) async {
+                                            final ok = await _confirmDelete(context, m.name);
+                                            if (!ok) return;
+
+                                            await _service.deleteMedicationForFuture(
+                                              uid: user.uid,
+                                              med: m,
+                                              effectiveDate: _selectedDay,
+                                            );
+                                          },
+                                          backgroundColor: Colors.red,
+                                          foregroundColor: Colors.white,
+                                          icon: Icons.delete,
+                                          label: 'Delete',
+                                        ),
+                                      ],
+                                    ),
+                                    child: baseTile,
+                                  );
                                 }
 
-                                return Slidable(
-                                  key: ValueKey(doseKey),
-                                  endActionPane: ActionPane(
-                                    motion: const DrawerMotion(),
-                                    extentRatio: 0.25,
-                                    children: [
-                                      SlidableAction(
-                                        onPressed: (_) async {
-                                          final ok = await _confirmDelete(context, m.name);
-                                          if (!ok) return;
+                                // ✅ Stagger animation wrapper
+                                return StaggerItem(index: i, child: tile);
 
-                                          await _service.deleteMedicationForFuture(
-                                            uid: user.uid,
-                                            med: m,
-                                            effectiveDate: _selectedDay,
-                                          );
-                                        },
-                                        backgroundColor: Colors.red.shade600,
-                                        foregroundColor: Colors.white,
-                                        icon: Icons.delete,
-                                        label: 'Delete',
-                                      ),
-                                    ],
-                                  ),
-                                  child: baseTile,
-                                );
                               },
                               childCount: doseItems.length,
                             ),

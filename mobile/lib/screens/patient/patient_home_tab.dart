@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../models/medication.dart';
 import '../../services/medications_service.dart';
+import '/widgets/app_motion.dart';
 
 class PatientHomeTab extends StatefulWidget {
   const PatientHomeTab({super.key});
@@ -207,7 +208,18 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
                           const SizedBox(height: 8),
                           ClipRRect(
                             borderRadius: BorderRadius.circular(10),
-                            child: LinearProgressIndicator(value: progress, minHeight: 10),
+                            child: TweenAnimationBuilder<double>(
+                              tween: Tween(begin: 0, end: progress),
+                              duration: const Duration(milliseconds: 500),
+                              curve: Curves.easeOutCubic,
+                              builder: (_, v, _) => TweenAnimationBuilder<double>(
+                                tween: Tween(begin: 0, end: progress),
+                                duration: const Duration(milliseconds: 500),
+                                curve: Curves.easeOutCubic,
+                                builder: (_, v, _) =>
+                                    LinearProgressIndicator(value: v),
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -233,7 +245,18 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
                           final checked = checkedMap[key] != null;
                           final showTime = time.trim().isNotEmpty;
 
-                          return Card(
+                          return StaggerItem(
+                            index: i,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              curve: Curves.easeOut,
+                              decoration: BoxDecoration(
+                                color: checked
+                                    ? Colors.green.withValues(alpha:0.06)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                          child: Card(
                             margin: const EdgeInsets.symmetric(vertical: 8),
                             child: CheckboxListTile(
                               value: checked,
@@ -256,6 +279,8 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
                                   ? const Icon(Icons.check_circle, color: Colors.green)
                                   : const Icon(Icons.medication_outlined),
                             ),
+                          )
+                            )
                           );
                         },
                       ),
