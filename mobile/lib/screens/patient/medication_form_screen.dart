@@ -32,11 +32,16 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
   bool _saving = false;
 
   final List<TimeOfDay> _times = [];
+  DateTime _startDate = DateTime.now();
+  DateTime _endDate = DateTime.now().add(const Duration(days: 7));
+
 
   @override
   void initState() {
     super.initState();
     final e = widget.existing;
+    _startDate = e?.startDate ?? widget.effectiveDate;
+    _endDate = e?.endDate ?? _startDate.add(const Duration(days: 7));
 
     _name = TextEditingController(text: e?.name ?? '');
     _dosage = TextEditingController(text: e?.dosage ?? '');
@@ -59,6 +64,15 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
     _freq.dispose();
     _notes.dispose();
     super.dispose();
+  }
+
+  Future<DateTime?> _pickDate(DateTime initial) async {
+    return showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
   }
 
   int _compareTime(TimeOfDay a, TimeOfDay b) {
@@ -133,8 +147,8 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
           frequencyPerDay: freq,
           notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
           times: times,
-          startDate: _dateOnly(widget.effectiveDate),
-          endDate: null,
+          startDate: _dateOnly(_startDate),
+          endDate: _dateOnly(_endDate),
           isActive: _isActive,
         );
       } else {
@@ -148,6 +162,7 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
           notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
           times: times,
           isActive: _isActive,
+          newEndDate: _dateOnly(_endDate),
         );
       }
 
@@ -183,6 +198,7 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.existing != null;
+    final canEditeStart = !isEdit;
 
     return Scaffold(
       appBar: AppBar(
@@ -265,6 +281,65 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
                   ),
                 ),
               ),
+
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Treatment period',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 10),
+
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: canEditeStart ? () async {
+                                final d = await _pickDate(_startDate);
+                                if (d == null) return;
+                                setState(() {
+                                  _startDate = DateTime(d.year, d.month, d.day);
+                                  if (_endDate.isBefore(_startDate)) _endDate = _startDate;
+                                  }); 
+                              }: null,
+
+                              icon: const Icon(Icons.calendar_today_outlined),
+                              label: Text('Start: ${_startDate.toString().substring(0, 10)}'),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () async {
+                                final d = await _pickDate(_endDate);
+                                if (d == null) return;
+                                setState(() {
+                                  _endDate = DateTime(d.year, d.month, d.day);
+                                  if (_endDate.isBefore(_startDate)) {
+                                    _endDate = _startDate;
+                                  }
+                                });
+                              },
+                              icon: const Icon(Icons.event_available_outlined),
+                              label: Text('End: ${_endDate.toString().substring(0, 10)}'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'The reminder will run only between these dates.',
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
               const SizedBox(height: 12),
               Card(
                 elevation: 1,
