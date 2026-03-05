@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'screens/auth_gate.dart';
 import 'services/notification_service.dart';
@@ -28,6 +29,10 @@ class MyApp extends StatelessWidget {
     final theme = ThemeData(
       useMaterial3: true,
 
+      // ✅ Global Font
+      fontFamily: GoogleFonts.poppins().fontFamily,
+      textTheme: GoogleFonts.poppinsTextTheme(),
+      
       colorScheme: ColorScheme.fromSeed(
         seedColor: kPrimary,
         brightness: Brightness.light,
