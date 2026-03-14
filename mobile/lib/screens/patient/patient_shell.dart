@@ -2,13 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../role_select_screen.dart';
-import 'patient_home_tab.dart';
-import 'medications_list_screen.dart';
-import 'medication_form_screen.dart';
-import '/widgets/app_motion.dart';
+import '../patient/patient_home_tab.dart';
+import '../patient/medications_list_screen.dart';
+import '../patient/notifications_screen.dart';
+import '../patient/medication_form_screen.dart';
 
-  
 class PatientShell extends StatefulWidget {
   const PatientShell({super.key});
 
@@ -19,256 +17,213 @@ class PatientShell extends StatefulWidget {
 class _PatientShellState extends State<PatientShell> {
   int _index = 0;
 
-  // === Brand Colors (Tech + Professional) ===
-  static const Color kPrimary = Color(0xFF4F5DFF); // indigo blue
-  static const Color kAccent = Color(0xFF8B5CF6); // purple
-  static const Color kBgTop = Color(0xFFF4F5FF); // subtle lavender
-  static const Color kBgBottom = Color(0xFFF6F7FB);
+  final List<String> _titles = const [
+    'Home',
+    'Medications',
+    'Notifications',
+    'Reports',
+  ];
 
-  String _sectionTitle(int index) {
-    switch (index) {
+  void _onTap(int i) {
+    setState(() => _index = i);
+  }
+
+  bool get _showFab => _index == 0;
+
+  Widget _buildCurrentPage() {
+    switch (_index) {
       case 0:
-        return 'Home';
+        return const PatientHomeTab();
       case 1:
-        return 'Medications';
+        return const MedicationsListScreen();
       case 2:
-        return 'Notifications';
+        return const NotificationsScreen();
       case 3:
-        return 'Reports / History';
-      case 4:
-        return 'AI';
+        return const _ReportsPlaceholderScreen();
       default:
-        return '';
+        return const PatientHomeTab();
     }
   }
 
-  bool get _showFab => _index == 1;
+  Future<Map<String, dynamic>?> _getUserData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return null;
+
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
+
+    return doc.data();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return const RoleSelectScreen();
+    const headerColor = Color(0xFF1E3A8A);
+    const bg = Color(0xFFF3F6FB);
 
-    final pages = <Widget>[
-      const PatientHomeTab(),
-      const MedicationsListScreen(),
-      const _PlaceholderPage(title: 'Notifications (soon)'),
-      const _PlaceholderPage(title: 'Reports / History (soon)'),
-      const _PlaceholderPage(title: 'AI (soon)'),
-    ];
+    return Scaffold(
+      backgroundColor: bg,
+      body: SafeArea(
+        child: Column(
+          children: [
+            FutureBuilder<Map<String, dynamic>?>(
+              future: _getUserData(),
+              builder: (context, snapshot) {
+                final data = snapshot.data;
+                final username =
+                    (data?['username'] as String?)?.trim().isNotEmpty == true
+                        ? data!['username'] as String
+                        : (FirebaseAuth.instance.currentUser?.displayName?.trim().isNotEmpty == true
+                            ? FirebaseAuth.instance.currentUser!.displayName!
+                            : 'Patient');
 
-    return Container(
-      // ✅ Unified background for ALL tabs
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [kBgTop, kBgBottom],
-        ),
-      ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent, // show the gradient
-
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(72),
-          child: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [kPrimary, kAccent],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.vertical(
-                bottom: Radius.circular(26),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  blurRadius: 16,
-                  offset: Offset(0, 6),
-                  color: Color(0x22000000),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                        stream: FirebaseFirestore.instance
-                            .collection('users')
-                            .doc(user.uid)
-                            .snapshots(),
-                        builder: (context, snap) {
-                          final data = snap.data?.data();
-                          final username =
-                              (data?['username'] as String?) ??
-                              (data?['displayName'] as String?) ??
-                              (user.email?.split('@').first ?? 'Patient');
-
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                'Welcome $username',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                ),
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+                  decoration: const BoxDecoration(
+                    color: headerColor,
+                    
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Welcome, $username',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
                               ),
-                              const SizedBox(height: 2),
-
-                              // ✅ Section title animation (Fade)
-                              AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 200),
-                                transitionBuilder: (child, anim) =>
-                                    FadeTransition(opacity: anim, child: child),
-                                child: Text(
-                                  _sectionTitle(_index),
-                                  key: ValueKey(_index),
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xCCFFFFFF),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _titles[_index],
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
                               ),
-                            ],
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      InkWell(
+                        borderRadius: BorderRadius.circular(28),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const _ProfilePlaceholderScreen(),
+                            ),
                           );
                         },
-                      ),
-                    ),
-
-                    // logout (no navigator here, AuthGate will route)
-                    IconButton(
-                      icon: const Icon(Icons.logout, color: Colors.white),
-                      onPressed: () async {
-                        await FirebaseAuth.instance.signOut();
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-
-        // ✅ Animated tab transitions
-        body: Padding(
-          padding: const EdgeInsets.only(top: 12),
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 250),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            transitionBuilder: (child, animation) {
-              final slide = Tween<Offset>(
-                begin: const Offset(0.03, 0),
-                end: Offset.zero,
-              ).animate(animation);
-
-              return FadeTransition(
-                opacity: animation,
-                child: SlideTransition(position: slide, child: child),
-              );
-            },
-            child: PageMotion(
-              key: ValueKey(_index),
-              child: pages[_index],
-            ),
-          ),
-        ),
-
-        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-
-        // ✅ FAB animation + hide on other tabs
-        floatingActionButton: AnimatedOpacity(
-          duration: const Duration(milliseconds: 180),
-          opacity: _showFab ? 1 : 0,
-          child: AnimatedScale(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            scale: _showFab ? 1 : 0.85,
-            child: IgnorePointer(
-              ignoring: !_showFab,
-              child: SizedBox(
-                height: 64,
-                width: 64,
-                child: DecoratedBox(
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: [kPrimary, kAccent],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        blurRadius: 14,
-                        offset: Offset(0, 8),
-                        color: Color(0x33000000),
+                        child: Container(
+                          width: 54,
+                          height: 54,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withValues(alpha: .12),
+                            border: Border.all(
+                              color: Colors.white24,
+                              width: 1,
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.person,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                  child: FloatingActionButton(
-                    backgroundColor: Colors.transparent,
-                    elevation: 0,
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => MedicationFormScreen(
-                            uid: user.uid,
-                            effectiveDate: DateTime.now(),
-                          ),
-                        ),
-                      );
-                    },
-                    child: const Icon(Icons.add, size: 30, color: Colors.white),
-                  ),
-                ),
-              ),
+                );
+              },
             ),
-          ),
-        ),
 
-        bottomNavigationBar: NavigationBarTheme(
-          data: NavigationBarThemeData(
-            height: 68,
-            backgroundColor: Colors.white,
-            elevation: 3,
-            indicatorColor: const Color(0x224F5DFF),
-            labelTextStyle: WidgetStateProperty.resolveWith((states) {
-              final selected = states.contains(WidgetState.selected);
-              return TextStyle(
-                fontSize: 12,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                color: selected ? kPrimary : Colors.grey.shade600,
-              );
-            }),
-            iconTheme: WidgetStateProperty.resolveWith((states) {
-              final selected = states.contains(WidgetState.selected);
-              return IconThemeData(
-                size: 24,
-                color: selected ? kPrimary : Colors.grey.shade600,
-              );
-            }),
-          ),
-          child: NavigationBar(
-            selectedIndex: _index,
-            onDestinationSelected: (i) => setState(() => _index = i),
-            destinations: const [
-              NavigationDestination(icon: Icon(Icons.home), label: 'Home'),
-              NavigationDestination(icon: Icon(Icons.medication), label: 'Medication'),
-              NavigationDestination(icon: Icon(Icons.notifications), label: 'Notifications'),
-              NavigationDestination(icon: Icon(Icons.insert_chart), label: 'Reports'),
-              NavigationDestination(icon: Icon(Icons.smart_toy), label: 'AI'),
-            ],
+            Expanded(
+              child: _buildCurrentPage(),
+            ),
+          ],
+        ),
+      ),
+
+      floatingActionButton: _showFab
+          ? FloatingActionButton(
+              backgroundColor: const Color(0xFF1E3A8A),
+              foregroundColor: Colors.white,
+              elevation: 8,
+              shape: const CircleBorder(),
+              onPressed: () {
+                final user = FirebaseAuth.instance.currentUser;
+                if (user == null) return;
+
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => MedicationFormScreen(
+                      uid: user.uid,
+                      effectiveDate: DateTime.now(),
+                    ),
+                  ),
+                );
+              },
+              child: const Icon(Icons.add, size: 32),
+            )
+          : null,
+
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: const [
+                BoxShadow(
+                  blurRadius: 18,
+                  offset: Offset(0, 6),
+                  color: Color(0x14000000),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _NavItem(
+                  icon: Icons.home_outlined,
+                  selectedIcon: Icons.home,
+                  selected: _index == 0,
+                  onTap: () => _onTap(0),
+                ),
+                _NavItem(
+                  icon: Icons.medication_outlined,
+                  selectedIcon: Icons.medication,
+                  selected: _index == 1,
+                  onTap: () => _onTap(1),
+                ),
+                _NavItem(
+                  icon: Icons.notifications_none,
+                  selectedIcon: Icons.notifications,
+                  selected: _index == 2,
+                  onTap: () => _onTap(2),
+                ),
+                _NavItem(
+                  icon: Icons.bar_chart_outlined,
+                  selectedIcon: Icons.bar_chart,
+                  selected: _index == 3,
+                  onTap: () => _onTap(3),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -276,12 +231,78 @@ class _PatientShellState extends State<PatientShell> {
   }
 }
 
-class _PlaceholderPage extends StatelessWidget {
-  final String title;
-  const _PlaceholderPage({required this.title});
+class _NavItem extends StatelessWidget {
+  final IconData icon;
+  final IconData selectedIcon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _NavItem({
+    required this.icon,
+    required this.selectedIcon,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Center(child: Text(title));
+    const activeColor = Color(0xFF1E3A8A);
+    const inactiveColor = Color(0xFF64748B);
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(22),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFFE8EEF9) : Colors.transparent,
+          borderRadius: BorderRadius.circular(22),
+        ),
+        child: Icon(
+          selected ? selectedIcon : icon,
+          color: selected ? activeColor : inactiveColor,
+          size: 26,
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfilePlaceholderScreen extends StatelessWidget {
+  const _ProfilePlaceholderScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Profile'),
+      ),
+      body: const Center(
+        child: Text(
+          'Profile Page Skeleton',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReportsPlaceholderScreen extends StatelessWidget {
+  const _ReportsPlaceholderScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Text(
+        'Reports Screen Skeleton',
+        style: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF334155),
+        ),
+      ),
+    );
   }
 }
