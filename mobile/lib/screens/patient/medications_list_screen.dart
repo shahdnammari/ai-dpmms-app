@@ -1,14 +1,12 @@
-// medications_list_screen.dart
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:table_calendar/table_calendar.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:table_calendar/table_calendar.dart';
+import 'package:intl/intl.dart';
 
 import '../../models/medication.dart';
 import '../../services/medications_service.dart';
 import 'medication_form_screen.dart';
-import '/widgets/app_motion.dart';
 
 class MedicationsListScreen extends StatefulWidget {
   const MedicationsListScreen({super.key});
@@ -21,10 +19,121 @@ class _MedicationsListScreenState extends State<MedicationsListScreen> {
   final _service = MedicationsService();
   final _searchCtrl = TextEditingController();
 
-  String _query = '';
-
   DateTime _focusedDay = DateTime.now();
   DateTime _selectedDay = DateTime.now();
+  String _query = '';
+
+  DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  bool _isSameDayOnly(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  bool _isMedActiveForDate(Medication med, DateTime day) {
+    final start = _dateOnly(med.startDate);
+    final target = _dateOnly(day);
+
+    if (target.isBefore(start)) return false;
+
+    if (med.endDate != null) {
+      final end = _dateOnly(med.endDate!);
+      if (target.isAfter(end)) return false;
+    }
+
+    return med.isActive;
+  }
+
+  List<Medication> _pickActiveVersionsPerGroup(List<Medication> meds, DateTime day) {
+    final activeToday = meds.where((m) => _isMedActiveForDate(m, day)).toList();
+
+    final Map<String, Medication> latestByGroup = {};
+    for (final med in activeToday) {
+      final key = med.groupId;
+      latestByGroup[key] = med;
+    }
+
+    final result = latestByGroup.values.toList();
+    result.sort((a, b) {
+      final at = a.times.isNotEmpty ? a.times.first : '99:99';
+      final bt = b.times.isNotEmpty ? b.times.first : '99:99';
+      return at.compareTo(bt);
+    });
+
+    return result;
+  }
+
+  String _formatSelectedDay(DateTime day) {
+    return DateFormat('EEE, d MMM yyyy').format(day);
+  }
+
+  Future<void> _confirmDelete({
+    required String uid,
+    required Medication med,
+  }) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) {
+        return AlertDialog(
+          title: const Text('Delete medication?'),
+          content: Text(
+            'Are you sure you want to delete "${med.name}"?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFDC2626),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (ok != true) return;
+
+    await _service.deleteMedicationForFuture(
+      uid: uid,
+      med: med,
+      effectiveDate: _selectedDay,
+    );
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${med.name} deleted')),
+    );
+  }
+
+  void _goAdd(String uid) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MedicationFormScreen(
+          uid: uid,
+          effectiveDate: _selectedDay,
+        ),
+      ),
+    );
+  }
+
+  void _goEdit(String uid, Medication med) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MedicationFormScreen(
+          uid: uid,
+          existing: med,
+          effectiveDate: _selectedDay,
+        ),
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -32,486 +141,434 @@ class _MedicationsListScreenState extends State<MedicationsListScreen> {
     super.dispose();
   }
 
-  DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
-
-  bool _isPast(DateTime day) {
-    final today = _dateOnly(DateTime.now());
-    final target = _dateOnly(day);
-    return target.isBefore(today);
-  }
-
-  bool _isToday(DateTime day) {
-    final today = _dateOnly(DateTime.now());
-    final target = _dateOnly(day);
-    return target.isAtSameMomentAs(today);
-  }
-
-  String _dayId(DateTime date) {
-    final mm = date.month.toString().padLeft(2, '0');
-    final dd = date.day.toString().padLeft(2, '0');
-    return '${date.year}-$mm-$dd';
-  }
-
-  DocumentReference<Map<String, dynamic>> _intakeDoc(String uid, DateTime date) {
-    return FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .collection('daily_intake')
-        .doc(_dayId(date));
-  }
-
-  Stream<Map<String, dynamic>> _watchCheckedMap(String uid, DateTime date) {
-    return _intakeDoc(uid, date).snapshots().map((doc) {
-      final data = doc.data();
-      return (data?['checked'] as Map<String, dynamic>?) ?? {};
-    });
-  }
-
-  String _doseKey(String medId, String time) => '${medId}_$time';
-
-  Future<void> _toggleChecked(
-    String uid,
-    DateTime date,
-    String medId,
-    String time,
-    bool checked,
-  ) async {
-    final ref = _intakeDoc(uid, date);
-    final key = _doseKey(medId, time);
-
-    if (checked) {
-      await ref.set({
-        'checked': {key: Timestamp.now()}, // takenAt
-        'date': Timestamp.fromDate(_dateOnly(date)),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-    } else {
-      await ref.set({
-        'checked': {key: FieldValue.delete()},
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-    }
-  }
-
-  Future<bool> _confirmDelete(BuildContext context, String name) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text('Delete "$name"?'),
-        content: const Text('This will affect the selected day and future days.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-              foregroundColor: Theme.of(context).colorScheme.onError,
-            ),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-    return ok == true;
-  }
-
-  String _formatSelectedHeader(DateTime date) {
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    final d = _dateOnly(date);
-    final dayName = days[d.weekday - 1];
-    return '$dayName • ${d.day} ${months[d.month - 1]} ${d.year}';
-  }
-
-  List<Map<String, String>> _buildDoseItems(List<Medication> meds) {
-    final items = <Map<String, String>>[];
-    for (final m in meds) {
-      final times = m.times.isEmpty ? <String>[''] : m.times;
-      for (final t in times) {
-        items.add({'medId': m.id, 'time': t});
-      }
-    }
-    return items;
-  }
-
-  Medication _findMedById(List<Medication> meds, String id) {
-    return meds.firstWhere((m) => m.id == id);
-  }
-
-  bool _isMedActiveForDate(Medication m, DateTime day) {
-    final d = _dateOnly(day);
-    final startOk = !_dateOnly(m.startDate).isAfter(d);
-    final endOk = m.endDate == null || !_dateOnly(m.endDate!).isBefore(d);
-    return m.isActive && startOk && endOk;
-  }
-
-  // ✅ pick only ONE active version per groupId for the selected day
-  List<Medication> _pickActiveVersionsPerGroup(List<Medication> meds, DateTime day) {
-    final map = <String, Medication>{};
-
-    for (final m in meds) {
-      if (!_isMedActiveForDate(m, day)) continue;
-
-      final key = m.groupId;
-      final existing = map[key];
-
-      if (existing == null || m.startDate.isAfter(existing.startDate)) {
-        map[key] = m;
-      }
-    }
-
-    final res = map.values.toList();
-    res.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-    return res;
-  }
-
-  void _goEdit(BuildContext context, String uid, Medication m, DateTime effectiveDate) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => MedicationFormScreen(
-          uid: uid,
-          existing: m,
-          effectiveDate: effectiveDate,
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      return const Center(child: Text('Not logged in'));
+      return const Center(child: Text('No logged in user.'));
     }
 
-    final selectedPast = _isPast(_selectedDay);
-    final selectedToday = _isToday(_selectedDay);
+    const bg = Color(0xFFF3F6FB);
 
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: StreamBuilder<List<Medication>>(
-        stream: _service.watchMedications(user.uid),
-        builder: (context, medsSnap) {
-          if (medsSnap.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (medsSnap.hasError) {
-            return Center(child: Text('Error: ${medsSnap.error}'));
-          }
-
-          var meds = medsSnap.data ?? [];
-          meds = _pickActiveVersionsPerGroup(meds, _selectedDay);
-
-          if (_query.isNotEmpty) {
-            meds = meds.where((m) {
-              final name = m.name.toLowerCase();
-              final dosage = m.dosage.toLowerCase();
-              return name.contains(_query) || dosage.contains(_query);
-            }).toList();
-          }
-
-          return StreamBuilder<Map<String, dynamic>>(
-            stream: _watchCheckedMap(user.uid, _selectedDay),
-            builder: (context, checkedSnap) {
-              final checkedMap = checkedSnap.data ?? {};
-              final doseItems = _buildDoseItems(meds);
-              final total = doseItems.length;
-
-              final taken = doseItems.where((item) {
-                final medId = item['medId']!;
-                final time = item['time']!;
-                final key = _doseKey(medId, time);
-                return checkedMap[key] != null; // Timestamp exists => taken
-              }).length;
-
-              final progress = total == 0 ? 0.0 : (taken / total);
-
-              return Column(
+    return Scaffold(
+      backgroundColor: bg,
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: const Color(0xFF1E3A8A),
+        foregroundColor: Colors.white,
+        elevation: 8,
+        shape: const CircleBorder(),
+        onPressed: () => _goAdd(user.uid),
+        child: const Icon(Icons.add, size: 32),
+      ),
+      body: SafeArea(
+        
+        child: Column(
+          children:[
+            /// Search + AI
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Row(
                 children: [
-                  // 🔎 Search
-                  TextField(
-                    controller: _searchCtrl,
-                    onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
-                    decoration: InputDecoration(
-                      hintText: 'Search medication...',
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: _query.isEmpty
-                          ? null
-                          : IconButton(
-                              icon: const Icon(Icons.clear),
-                              onPressed: () {
-                                _searchCtrl.clear();
-                                setState(() => _query = '');
-                              },
+                  Expanded(
+                    child: Container(
+                      height: 48,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: TextField(
+                          controller: _searchCtrl,
+                          onChanged: (v) {
+                            _query = v;
+                            setState(() {});
+                          },
+                          decoration: const InputDecoration(
+                            hintText: 'Search medication...',
+                            prefixIcon: Icon(
+                              Icons.search,
+                              color: Color(0xFF1E3A8A),
                             ),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // 📅 Calendar (week)
-                  Card(
-                    elevation: 1,
-                    child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: TableCalendar(
-                        firstDay: DateTime.utc(2020, 1, 1),
-                        lastDay: DateTime.utc(2035, 12, 31),
-                        focusedDay: _focusedDay,
-                        calendarFormat: CalendarFormat.week,
-                        availableCalendarFormats: const {CalendarFormat.week: 'Week'},
-                        headerStyle: const HeaderStyle(formatButtonVisible: false, titleCentered: true),
-                        selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-                        onDaySelected: (selectedDay, focusedDay) {
-                          setState(() {
-                            _selectedDay = selectedDay;
-                            _focusedDay = focusedDay;
-                          });
-                        },
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
+                    const SizedBox(width: 10),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const _AiPlaceholderScreen(),
+                          ),
+                        );
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.all(6),
+                        child: Icon(
+                          Icons.auto_awesome_outlined,
+                          color: Color(0xFF1E3A8A),
+                          size: 22,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+            ),
+          
+        
+      
+        Expanded(
+        child: StreamBuilder<List<Medication>>(
+          stream: _service.watchMedications(user.uid),
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-                  // Selected day header
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      _formatSelectedHeader(_selectedDay),
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+            final allMeds = snap.data ?? [];
+            final medsForDay = _pickActiveVersionsPerGroup(allMeds, _selectedDay);
+
+            final filtered = medsForDay.where((m) {
+              final q = _query.trim().toLowerCase();
+              if (q.isEmpty) return true;
+              return m.name.toLowerCase().contains(q) ||
+                  m.dosage.toLowerCase().contains(q);
+            }).toList();
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+              
+
+                  const SizedBox(height: 14),
+
+                  /// Week calendar
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: const [
+                        BoxShadow(
+                          blurRadius: 10,
+                          offset: Offset(0, 4),
+                          color: Color(0x11000000),
+                        ),
+                      ],
+                    ),
+                    child: TableCalendar(
+                      firstDay: DateTime.utc(2020, 1, 1),
+                      lastDay: DateTime.utc(2035, 12, 31),
+                      focusedDay: _focusedDay,
+                      selectedDayPredicate: (day) => _isSameDayOnly(day, _selectedDay),
+                      calendarFormat: CalendarFormat.week,
+                      availableCalendarFormats: const {
+                        CalendarFormat.week: 'Week',
+                      },
+                      startingDayOfWeek: StartingDayOfWeek.sunday,
+                      headerStyle: const HeaderStyle(
+                        titleCentered: true,
+                        formatButtonVisible: false,
+                        leftChevronIcon: Icon(Icons.chevron_left),
+                        rightChevronIcon: Icon(Icons.chevron_right),
+                        titleTextStyle: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      daysOfWeekStyle: const DaysOfWeekStyle(
+                        weekdayStyle: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF334155),
+                        ),
+                        weekendStyle: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF334155),
+                        ),
+                      ),
+                      calendarStyle: CalendarStyle(
+                        outsideDaysVisible: false,
+                        defaultTextStyle: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0F172A),
+                        ),
+                        weekendTextStyle: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0F172A),
+                        ),
+                        todayDecoration: BoxDecoration(
+                          color: const Color(0xFFE8EEF9),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: const Color(0xFF1E3A8A)),
+                        ),
+                        selectedDecoration: const BoxDecoration(
+                          color: Color(0xFF0F172A),
+                          shape: BoxShape.circle,
+                        ),
+                        selectedTextStyle: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      onDaySelected: (selectedDay, focusedDay) {
+                        setState(() {
+                          _selectedDay = selectedDay;
+                          _focusedDay = focusedDay;
+                        });
+                      },
+                      onPageChanged: (focusedDay) {
+                        _focusedDay = focusedDay;
+                      },
                     ),
                   ),
-                  const SizedBox(height: 10),
 
-                  // Scroll content
-                  Expanded(
-                    child: CustomScrollView(
-                      slivers: [
-                        // Summary
-                        SliverToBoxAdapter(
-                          child: Card(
-                            elevation: 1,
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        'Taken $taken / $total',
-                                        style: const TextStyle(fontWeight: FontWeight.w700),
-                                      ),
-                                      Text(
-                                        '${(progress * 100).round()}%',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.grey.shade700,
+                  const SizedBox(height: 16),
+
+                  /// Selected day
+                  Text(
+                    _formatSelectedDay(_selectedDay),
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF334155),
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  if (filtered.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: const Text(
+                        'No medications for this day.',
+                        style: TextStyle(
+                          color: Color(0xFF64748B),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+
+                  ...filtered.map((med) {
+                    final time = med.times.isNotEmpty ? med.times.first : '--:--';
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Slidable(
+                        key: ValueKey('${med.id}_${_selectedDay.toIso8601String()}'),
+                        endActionPane: ActionPane(
+                          motion: const ScrollMotion(),
+                          children: [
+                            SlidableAction(
+                              onPressed: (_) => _confirmDelete(uid: user.uid, med: med),
+                              backgroundColor: const Color(0xFFF87171),
+                              foregroundColor: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              icon: Icons.delete_outline,
+                              label: 'Delete',
+                            ),
+                          ],
+                        ),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(18),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    _MedicationDetailsPlaceholderScreen(medication: med),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 16,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                              boxShadow: const [
+                                BoxShadow(
+                                  blurRadius: 10,
+                                  offset: Offset(0, 4),
+                                  color: Color(0x0E000000),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.medication_outlined,
+                                  color: Color(0xFF1E3A8A),
+                                  size: 22,
+                                ),
+                                const SizedBox(width: 12),
+
+                                Expanded(
+                                  child: Text(
+                                    med.name,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF1E3A8A),
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+
+                                const SizedBox(width: 12),
+
+                                Text(
+                                  time,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF1E3A8A),
+                                  ),
+                                ),
+
+                                const SizedBox(width: 10),
+
+                                PopupMenuButton<String>(
+                                  offset: const Offset(-10, 40),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  icon: const Icon(
+                                    Icons.more_vert,
+                                    color: Color(0xFF64748B),
+                                    size: 20,
+                                  ),
+                                  onSelected: (selected) {
+                                    if (selected == 'edit') {
+                                      _goEdit(user.uid, med);
+                                    } else if (selected == 'delete') {
+                                      _confirmDelete(uid: user.uid, med: med);
+                                    } else if (selected == 'details') {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => _MedicationDetailsPlaceholderScreen(medication: med),
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  itemBuilder: (context) => const [
+                                    PopupMenuItem(
+                                      value: 'edit',
+                                      child: ListTile(
+                                        dense: true,
+                                        leading: Icon(Icons.edit_outlined, color: Color(0xFF1E3A8A)),
+                                        title: Text(
+                                          'Edit',
+                                          style: TextStyle(color: Color(0xFF1E3A8A)),
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(10),
-                                    child: TweenAnimationBuilder<double>(
-                                      tween: Tween(begin: 0, end: progress),
-                                      duration: const Duration(milliseconds: 500),
-                                      curve: Curves.easeOutCubic,
-                                      builder: (_, v, __) => LinearProgressIndicator(value: v, minHeight: 10),
                                     ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    selectedPast
-                                        ? 'Past day: history view'
-                                        : (selectedToday ? 'Today: you can mark taken' : 'Future day: plan view'),
-                                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
-                                  ),
-                                ],
-                              ),
+                                    PopupMenuItem(
+                                      value: 'delete',
+                                      child: ListTile(
+                                        dense: true,
+                                        leading: Icon(Icons.delete_outline, color: Color(0xFFDC2626)),
+                                        title: Text(
+                                          'Delete',
+                                          style: TextStyle(color: Color(0xFFDC2626)),
+                                        ),
+                                      ),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 'details',
+                                      child: ListTile(
+                                        dense: true,
+                                        leading: Icon(Icons.info_outline, color: Color(0xFF334155)),
+                                        title: Text(
+                                          'Details',
+                                          style: TextStyle(color: Color(0xFF334155)),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                         ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 10)),
-
-                        if (doseItems.isEmpty)
-                          const SliverFillRemaining(
-                            hasScrollBody: false,
-                            child: Center(child: Text('No medications found. Use + to add.')),
-                          )
-                        else
-                          SliverList(
-                            delegate: SliverChildBuilderDelegate(
-                              (context, i) {
-                                final item = doseItems[i];
-                                final medId = item['medId']!;
-                                final time = item['time']!;
-                                final m = _findMedById(meds, medId);
-
-                                final canToggle = selectedToday;      // ✅ checkbox فقط لليوم
-                                final canEditDelete = !selectedPast;  // ✅ actions فقط اليوم/المستقبل
-
-                                final doseKey = _doseKey(m.id, time);
-                                final checked = checkedMap[doseKey] != null;
-                                final showTime = time.trim().isNotEmpty;
-
-                                // -------- Base Tile --------
-                                final baseTile = AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  curve: Curves.easeOut,
-                                  decoration: BoxDecoration(
-                                    color: checked ? Colors.green.withValues(alpha: 0.06) : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Card(
-                                    margin: const EdgeInsets.symmetric(vertical: 8),
-                                    elevation: 2,
-                                    child: ListTile(
-                                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                      title: Text(
-                                        m.name,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w800,
-                                          decoration: checked ? TextDecoration.lineThrough : null,
-                                          color: checked ? Colors.green : null,
-                                        ),
-                                      ),
-                                      subtitle: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          const SizedBox(height: 4),
-                                          Text('${m.dosage} • ${m.frequencyPerDay} / day'),
-                                          if (showTime)
-                                            Padding(
-                                              padding: const EdgeInsets.only(top: 6),
-                                              child: Text(
-                                                'Time: $time',
-                                                style: const TextStyle(fontWeight: FontWeight.w600),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                      trailing: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Checkbox(
-                                            value: checked,
-                                            onChanged: canToggle
-                                                ? (v) => _toggleChecked(user.uid, _selectedDay, m.id, time, v ?? false)
-                                                : null,
-                                          ),
-                                          if (canEditDelete)
-                                            PopupMenuButton<String>(
-                                              icon: const Icon(Icons.more_vert),
-                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                              onSelected: (value) async {
-                                                if (value == 'edit') {
-                                                  _goEdit(context, user.uid, m, _selectedDay);
-                                                } else if (value == 'delete') {
-                                                  final ok = await _confirmDelete(context, m.name);
-                                                  if (!ok) return;
-                                                  await _service.deleteMedicationForFuture(
-                                                    uid: user.uid,
-                                                    med: m,
-                                                    effectiveDate: _selectedDay,
-                                                  );
-                                                } else if (value == 'add') {
-                                                  Navigator.push(
-                                                    context,
-                                                    MaterialPageRoute(
-                                                      builder: (_) => MedicationFormScreen(
-                                                        uid: user.uid,
-                                                        effectiveDate: _selectedDay,
-                                                      ),
-                                                    ),
-                                                  );
-                                                }
-                                              },
-                                              itemBuilder: (context) => const [
-                                                PopupMenuItem(
-                                                  value: 'edit',
-                                                  child: Row(
-                                                    children: [
-                                                      Icon(Icons.edit),
-                                                      SizedBox(width: 12),
-                                                      Text('Edit'),
-                                                    ],
-                                                  ),
-                                                ),
-                                                PopupMenuItem(
-                                                  value: 'delete',
-                                                  child: Row(
-                                                    children: [
-                                                      Icon(Icons.delete, color: Colors.red),
-                                                      SizedBox(width: 12),
-                                                      Text('Delete', style: TextStyle(color: Colors.red)),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                );
-
-                                // -------- Build final tile (maybe slidable) --------
-                                Widget tile = baseTile;
-
-                                // Swipe delete only when allowed (today/future)
-                                if (canEditDelete) {
-                                  tile = Slidable(
-                                    key: ValueKey(doseKey),
-                                    endActionPane: ActionPane(
-                                      motion: const DrawerMotion(),
-                                      extentRatio: 0.25,
-                                      children: [
-                                        SlidableAction(
-                                          onPressed: (_) async {
-                                            final ok = await _confirmDelete(context, m.name);
-                                            if (!ok) return;
-
-                                            await _service.deleteMedicationForFuture(
-                                              uid: user.uid,
-                                              med: m,
-                                              effectiveDate: _selectedDay,
-                                            );
-                                          },
-                                          backgroundColor: Colors.red,
-                                          foregroundColor: Colors.white,
-                                          icon: Icons.delete,
-                                          label: 'Delete',
-                                        ),
-                                      ],
-                                    ),
-                                    child: baseTile,
-                                  );
-                                }
-
-                                // ✅ Stagger animation wrapper
-                                return StaggerItem(index: i, child: tile);
-
-                              },
-                              childCount: doseItems.length,
-                            ),
-                          ),
-
-                        const SliverToBoxAdapter(child: SizedBox(height: 90)),
-                      ],
-                    ),
-                  ),
+                      ),
+                    );
+                  }),
                 ],
-              );
-            },
-          );
-        },
+              ),
+            );
+          },
+        ),
+      ),
+      ],
+    )
+    ),
+    );
+  }
+}
+
+class _AiPlaceholderScreen extends StatelessWidget {
+  const _AiPlaceholderScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('AI')),
+      body: const Center(
+        child: Text(
+          'AI Screen Skeleton',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+        ),
+      ),
+    );
+  }
+}
+
+class _MedicationDetailsPlaceholderScreen extends StatelessWidget {
+  final Medication medication;
+  const _MedicationDetailsPlaceholderScreen({required this.medication});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(medication.name)),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Name: ${medication.name}'),
+                const SizedBox(height: 8),
+                Text('Dosage: ${medication.dosage}'),
+                const SizedBox(height: 8),
+                Text('Frequency: ${medication.frequencyPerDay}'),
+                const SizedBox(height: 8),
+                Text('Times: ${medication.times.join(', ')}'),
+                const SizedBox(height: 8),
+                Text('Notes: ${medication.notes ?? '-'}'),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

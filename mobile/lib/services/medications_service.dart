@@ -49,6 +49,7 @@ class MedicationsService {
     });
 
     await NotificationService.instance.scheduleMedicationRange(
+      uid: uid,
       medDocId: doc.id,
       medName: name.trim(),
       startDate: startDate,
@@ -140,6 +141,7 @@ class MedicationsService {
       );
 
       await NotificationService.instance.scheduleMedicationRange(
+        uid: uid,
         medDocId: oldMed.id,
         medName: name.trim(),
         startDate: oldStart,
@@ -195,6 +197,7 @@ class MedicationsService {
 
     // 2) reschedule old shortened
     await NotificationService.instance.scheduleMedicationRange(
+      uid: uid,
       medDocId: oldMed.id,
       medName: oldMed.name,
       startDate: oldStart,
@@ -205,6 +208,7 @@ class MedicationsService {
     // 3) schedule new version
     final newEnd = (targetEnd ?? oldEnd);
     await NotificationService.instance.scheduleMedicationRange(
+      uid: uid,
       medDocId: newDoc.id,
       medName: name.trim(),
       startDate: eff,
@@ -285,6 +289,7 @@ class MedicationsService {
 
       // reschedule for shortened range
       await NotificationService.instance.scheduleMedicationRange(
+        uid: uid,
         medDocId: med.id,
         medName: med.name,
         startDate: start,
