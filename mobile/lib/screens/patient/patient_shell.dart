@@ -96,7 +96,7 @@ class _PatientShellState extends State<PatientShell> {
                               'Welcome, $username',
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 24,
+                                fontSize: 20,
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
