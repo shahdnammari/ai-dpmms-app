@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../models/medication.dart';
 import '../../services/medications_service.dart';
 import 'medication_form_screen.dart';
+import 'medication_details_screen.dart';
 
 class MedicationsListScreen extends StatefulWidget {
   const MedicationsListScreen({super.key});
@@ -80,6 +81,9 @@ class _MedicationsListScreenState extends State<MedicationsListScreen> {
           ),
           actions: [
             TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF0B1738),
+              ),
               onPressed: () => Navigator.pop(context, false),
               child: const Text('Cancel'),
             ),
@@ -372,7 +376,7 @@ class _MedicationsListScreenState extends State<MedicationsListScreen> {
                           children: [
                             SlidableAction(
                               onPressed: (_) => _confirmDelete(uid: user.uid, med: med),
-                              backgroundColor: const Color(0xFFF87171),
+                              backgroundColor: const Color(0xFFDC2626),
                               foregroundColor: Colors.white,
                               borderRadius: BorderRadius.circular(16),
                               icon: Icons.delete_outline,
@@ -383,11 +387,14 @@ class _MedicationsListScreenState extends State<MedicationsListScreen> {
                         child: InkWell(
                           borderRadius: BorderRadius.circular(18),
                           onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    _MedicationDetailsPlaceholderScreen(medication: med),
+                            Navigator.of(context).push(
+                              PageRouteBuilder(
+                                opaque: false,
+                                pageBuilder: (_, _, _) => MedicationDetailsScreen(
+                                  medication: med,
+                                  uid: user.uid,
+                                  effectiveDate: _selectedDay,
+                                )
                               ),
                             );
                           },
@@ -459,10 +466,14 @@ class _MedicationsListScreenState extends State<MedicationsListScreen> {
                                     } else if (selected == 'delete') {
                                       _confirmDelete(uid: user.uid, med: med);
                                     } else if (selected == 'details') {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => _MedicationDetailsPlaceholderScreen(medication: med),
+                                      Navigator.of(context).push(
+                                        PageRouteBuilder(
+                                          opaque: false,
+                                          pageBuilder: (_, _, _) => MedicationDetailsScreen(
+                                            medication: med,
+                                            uid: user.uid,
+                                            effectiveDate: _selectedDay,
+                                          ),
                                         ),
                                       );
                                     }
@@ -534,40 +545,6 @@ class _AiPlaceholderScreen extends StatelessWidget {
         child: Text(
           'AI Screen Skeleton',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-        ),
-      ),
-    );
-  }
-}
-
-class _MedicationDetailsPlaceholderScreen extends StatelessWidget {
-  final Medication medication;
-  const _MedicationDetailsPlaceholderScreen({required this.medication});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(medication.name)),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Name: ${medication.name}'),
-                const SizedBox(height: 8),
-                Text('Dosage: ${medication.dosage}'),
-                const SizedBox(height: 8),
-                Text('Frequency: ${medication.frequencyPerDay}'),
-                const SizedBox(height: 8),
-                Text('Times: ${medication.times.join(', ')}'),
-                const SizedBox(height: 8),
-                Text('Notes: ${medication.notes ?? '-'}'),
-              ],
-            ),
-          ),
         ),
       ),
     );

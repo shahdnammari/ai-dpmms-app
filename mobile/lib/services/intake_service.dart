@@ -39,6 +39,32 @@ class IntakeService {
     return snap.data() ?? <String, dynamic>{};
   }
 
+  /// Read one dose status from an already-loaded intake map
+  String? getDoseStatusFromMap({
+    required Map<String, dynamic> intakeMap,
+    required String doseKey,
+  }) {
+    final dose = intakeMap[doseKey];
+    if (dose is Map<String, dynamic>) {
+      return dose['status'] as String?;
+    }
+    return null;
+  }
+
+  /// Read one dose status directly from Firestore
+  Future<String?> getDoseStatus({
+    required String uid,
+    required DateTime date,
+    required String doseKey,
+  }) async {
+    final data = await getDailyIntake(uid: uid, date: date);
+    final dose = data[doseKey];
+    if (dose is Map<String, dynamic>) {
+      return dose['status'] as String?;
+    }
+    return null;
+  }
+
   /// taken / skipped
   Future<void> setDoseStatus({
     required String uid,
@@ -65,7 +91,7 @@ class IntakeService {
     }, SetOptions(merge: true));
   }
 
-  /// Toggle 
+  /// Toggle
   Future<void> toggleDose({
     required String uid,
     required DateTime date,

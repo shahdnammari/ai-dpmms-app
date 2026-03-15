@@ -6,6 +6,7 @@ import '../../models/medication.dart';
 import '../../services/intake_service.dart';
 import '../../services/medications_service.dart';
 import '../role_select_screen.dart';
+import 'medication_details_screen.dart';
 
 class PatientHomeTab extends StatefulWidget {
   const PatientHomeTab({super.key});
@@ -419,11 +420,16 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
                         child: InkWell(
                           borderRadius: BorderRadius.circular(20),
                           onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    _MedicationDetailsPlaceholderScreen(medication: med),
+                            Navigator.of(context).push(
+                              PageRouteBuilder(
+                                opaque: false,
+                                barrierDismissible: true,
+                                pageBuilder: (_, _, _) => 
+                                  MedicationDetailsScreen(
+                                    medication: med,
+                                    uid: user.uid,
+                                    effectiveDate: today,
+                                  )
                               ),
                             );
                           },
@@ -642,40 +648,6 @@ class _SettingsPlaceholderScreen extends StatelessWidget {
         child: Text(
           'Settings Screen Skeleton',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-        ),
-      ),
-    );
-  }
-}
-
-class _MedicationDetailsPlaceholderScreen extends StatelessWidget {
-  final Medication medication;
-  const _MedicationDetailsPlaceholderScreen({required this.medication});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(medication.name)),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Name: ${medication.name}'),
-                const SizedBox(height: 8),
-                Text('Dosage: ${medication.dosage}'),
-                const SizedBox(height: 8),
-                Text('Frequency: ${medication.frequencyPerDay}'),
-                const SizedBox(height: 8),
-                Text('Times: ${medication.times.join(', ')}'),
-                const SizedBox(height: 8),
-                Text('Notes: ${medication.notes ?? '-'}'),
-              ],
-            ),
-          ),
         ),
       ),
     );
