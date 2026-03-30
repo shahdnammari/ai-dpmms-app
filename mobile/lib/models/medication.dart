@@ -7,10 +7,11 @@ class Medication {
   final String dosage;
   final int frequencyPerDay;
   final String? notes;
-  final bool isActive;
   final DateTime startDate;
   final DateTime? endDate;
   final List<String> times;
+  final List<String> repeatDays;    // e.g. ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+  final bool reminderEnabled;       // true = إشعارات مفعلة
 
   const Medication({
     required this.id,
@@ -19,13 +20,19 @@ class Medication {
     required this.dosage,
     required this.frequencyPerDay,
     this.notes,
-    required this.isActive,
     required this.startDate,
     this.endDate,
     this.times = const [],
+    this.repeatDays = const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    this.reminderEnabled = true,
   });
 
   static DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  /// الأيام الكاملة السبعة — الديفولت إذا ما اختار المستخدم
+  static const List<String> allDays = [
+    'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'
+  ];
 
   Map<String, dynamic> toMap() {
     return {
@@ -33,10 +40,11 @@ class Medication {
       'dosage': dosage.trim(),
       'frequencyPerDay': frequencyPerDay,
       'notes': notes?.trim(),
-      'isActive': isActive,
       'startDate': Timestamp.fromDate(_dateOnly(startDate)),
       'endDate': endDate == null ? null : Timestamp.fromDate(_dateOnly(endDate!)),
       'times': times,
+      'repeatDays': repeatDays,
+      'reminderEnabled': reminderEnabled,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     };
@@ -46,7 +54,7 @@ class Medication {
     final data = doc.data() ?? {};
 
     final startTs = data['startDate'];
-    final endTs = data['endDate'];
+    final endTs   = data['endDate'];
 
     DateTime startDate;
     if (startTs is Timestamp) {
@@ -60,6 +68,18 @@ class Medication {
       endDate = endTs.toDate();
     }
 
+    // ── repeatDays ──────────────────────────────────────────────
+    // الأدوية القديمة بـ Firestore ما عندها repeatDays
+    // الديفولت = كل الأيام عشان ما نكسر السلوك القديم
+    final rawDays = data['repeatDays'];
+    final List<String> repeatDays = (rawDays is List && rawDays.isNotEmpty)
+        ? rawDays.map((e) => e.toString()).toList()
+        : List<String>.from(allDays);
+
+    // ── reminderEnabled ──────────────────────────────────────────
+    // الأدوية القديمة ما عندها reminderEnabled → ديفولت true
+    final reminderEnabled = (data['reminderEnabled'] as bool?) ?? true;
+
     return Medication(
       id: doc.id,
       groupId: data['groupId'] as String? ?? doc.id,
@@ -67,10 +87,11 @@ class Medication {
       dosage: (data['dosage'] as String?) ?? '',
       frequencyPerDay: (data['frequencyPerDay'] as int?) ?? 1,
       notes: data['notes'] as String?,
-      isActive: (data['isActive'] as bool?) ?? true,
       startDate: _dateOnly(startDate),
       endDate: endDate == null ? null : _dateOnly(endDate),
       times: ((data['times'] as List?) ?? []).map((e) => e.toString()).toList(),
+      repeatDays: repeatDays,
+      reminderEnabled: reminderEnabled,
     );
   }
 }
