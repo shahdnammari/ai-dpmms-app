@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../services/app_refresh.dart';
 import '../patient/patient_home_tab.dart';
 import '../patient/medications_list_screen.dart';
 import '../patient/notifications_screen.dart';
-import '../patient/medication_form_screen.dart';
+import '../patient/reports_screen.dart';
 
 class PatientShell extends StatefulWidget {
   const PatientShell({super.key});
@@ -25,10 +26,12 @@ class _PatientShellState extends State<PatientShell> {
   ];
 
   void _onTap(int i) {
+    if (_index == i) {
+      AppRefresh.trigger();
+      return;
+    }
     setState(() => _index = i);
   }
-
-  bool get _showFab => _index == 0;
 
   Widget _buildCurrentPage() {
     switch (_index) {
@@ -39,7 +42,7 @@ class _PatientShellState extends State<PatientShell> {
       case 2:
         return const NotificationsScreen();
       case 3:
-        return const _ReportsPlaceholderScreen();
+        return const ReportsScreen();
       default:
         return const PatientHomeTab();
     }
@@ -48,25 +51,26 @@ class _PatientShellState extends State<PatientShell> {
   Future<Map<String, dynamic>?> _getUserData() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return null;
-
     final doc = await FirebaseFirestore.instance
         .collection('users')
         .doc(user.uid)
         .get();
-
     return doc.data();
   }
 
   @override
   Widget build(BuildContext context) {
+    // Form header
     const headerColor = Color(0xFF1E3A8A);
     const bg = Color(0xFFF3F6FB);
 
     return Scaffold(
       backgroundColor: bg,
+
       body: SafeArea(
         child: Column(
           children: [
+            // Shell Header
             FutureBuilder<Map<String, dynamic>?>(
               future: _getUserData(),
               builder: (context, snapshot) {
@@ -74,17 +78,18 @@ class _PatientShellState extends State<PatientShell> {
                 final username =
                     (data?['username'] as String?)?.trim().isNotEmpty == true
                         ? data!['username'] as String
-                        : (FirebaseAuth.instance.currentUser?.displayName?.trim().isNotEmpty == true
-                            ? FirebaseAuth.instance.currentUser!.displayName!
+                        : (FirebaseAuth.instance.currentUser?.displayName
+                                    ?.trim()
+                                    .isNotEmpty ==
+                                true
+                            ? FirebaseAuth
+                                .instance.currentUser!.displayName!
                             : 'Patient');
 
                 return Container(
                   width: double.infinity,
                   padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-                  decoration: const BoxDecoration(
-                    color: headerColor,
-                    
-                  ),
+                  decoration: const BoxDecoration(color: headerColor),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
@@ -112,14 +117,14 @@ class _PatientShellState extends State<PatientShell> {
                           ],
                         ),
                       ),
-
                       InkWell(
                         borderRadius: BorderRadius.circular(28),
                         onTap: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => const _ProfilePlaceholderScreen(),
+                              builder: (_) =>
+                                  const _ProfilePlaceholderScreen(),
                             ),
                           );
                         },
@@ -130,15 +135,10 @@ class _PatientShellState extends State<PatientShell> {
                             shape: BoxShape.circle,
                             color: Colors.white.withValues(alpha: .12),
                             border: Border.all(
-                              color: Colors.white24,
-                              width: 1,
-                            ),
+                                color: Colors.white24, width: 1),
                           ),
-                          child: const Icon(
-                            Icons.person,
-                            color: Colors.white,
-                            size: 28,
-                          ),
+                          child: const Icon(Icons.person_outline,
+                              color: Colors.white, size: 28),
                         ),
                       ),
                     ],
@@ -147,37 +147,13 @@ class _PatientShellState extends State<PatientShell> {
               },
             ),
 
-            Expanded(
-              child: _buildCurrentPage(),
-            ),
+            // Page content
+            Expanded(child: _buildCurrentPage()),
           ],
         ),
       ),
 
-      floatingActionButton: _showFab
-          ? FloatingActionButton(
-              backgroundColor: const Color(0xFF1E3A8A),
-              foregroundColor: Colors.white,
-              elevation: 8,
-              shape: const CircleBorder(),
-              onPressed: () {
-                final user = FirebaseAuth.instance.currentUser;
-                if (user == null) return;
-
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => MedicationFormScreen(
-                      uid: user.uid,
-                      effectiveDate: DateTime.now(),
-                    ),
-                  ),
-                );
-              },
-              child: const Icon(Icons.add, size: 32),
-            )
-          : null,
-
+      // Bottom nav
       bottomNavigationBar: SafeArea(
         top: false,
         child: Padding(
@@ -194,7 +170,8 @@ class _PatientShellState extends State<PatientShell> {
                 ),
               ],
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
@@ -231,6 +208,8 @@ class _PatientShellState extends State<PatientShell> {
   }
 }
 
+// Nav item
+
 class _NavItem extends StatelessWidget {
   final IconData icon;
   final IconData selectedIcon;
@@ -246,7 +225,7 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const activeColor = Color(0xFF1E3A8A);
+    const activeColor   = Color(0xFF1E3A8A);
     const inactiveColor = Color(0xFF64748B);
 
     return InkWell(
@@ -255,9 +234,12 @@ class _NavItem extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFE8EEF9) : Colors.transparent,
+          color: selected
+              ? const Color(0xFFE8EEF9)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(22),
         ),
         child: Icon(
@@ -270,38 +252,19 @@ class _NavItem extends StatelessWidget {
   }
 }
 
+// Placeholders
+
 class _ProfilePlaceholderScreen extends StatelessWidget {
   const _ProfilePlaceholderScreen();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile'),
-      ),
+      appBar: AppBar(title: const Text('Profile')),
       body: const Center(
-        child: Text(
-          'Profile Page Skeleton',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-        ),
-      ),
-    );
-  }
-}
-
-class _ReportsPlaceholderScreen extends StatelessWidget {
-  const _ReportsPlaceholderScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Text(
-        'Reports Screen Skeleton',
-        style: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: Color(0xFF334155),
-        ),
+        child: Text('Profile Page Skeleton',
+            style:
+                TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
       ),
     );
   }

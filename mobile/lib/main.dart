@@ -6,12 +6,17 @@ import 'package:google_fonts/google_fonts.dart';
 import 'screens/auth_gate.dart';
 import 'services/notification_service.dart';
 
+// ADD THIS: Navigator key for notifications
+final navigatorKey = GlobalKey<NavigatorState>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  await NotificationService.instance.init();
+  
+  // Initialize NotificationService with navigatorKey
+  await NotificationService.instance.init(navKey: navigatorKey);
 
   runApp(const MyApp());
 }
@@ -19,7 +24,7 @@ void main() async {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // ✅ Brand colors: Tech + Professional
+  // Brand colors: Tech + Professional
   static const Color kPrimary = Color(0xFF4F5DFF); // Indigo Blue
   static const Color kAccent = Color(0xFF8B5CF6);  // Purple
   static const Color kBg = Color(0xFFF6F7FB);      // App background
@@ -29,7 +34,7 @@ class MyApp extends StatelessWidget {
     final theme = ThemeData(
       useMaterial3: true,
 
-      // ✅ Global Font
+      // Global Font
       fontFamily: GoogleFonts.poppins().fontFamily,
       textTheme: GoogleFonts.poppinsTextTheme(),
       
@@ -123,7 +128,9 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'AI-DPMMS',
       debugShowCheckedModeBanner: false,
-      theme: theme, 
+      theme: theme,
+      // ADD NAVIGATOR KEY HERE
+      navigatorKey: navigatorKey,
       home: const AuthGate(),
     );
   }
