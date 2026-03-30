@@ -51,3 +51,8 @@ app.*.map.json
 **/lib/firebase_options.dart
 firebase.json
 .firebaserc
+
+# Flutter generated files
+**/generated_plugin_registrant.*
+**/GeneratedPluginRegistrant.*
+**/generated_plugins.cmake
