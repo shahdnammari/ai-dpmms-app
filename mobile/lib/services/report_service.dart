@@ -143,7 +143,6 @@ class ReportService {
       return checked;
     }
 
-    // fallback: رجّع فقط العناصر اللي قيمتها Map
     return Map<String, dynamic>.fromEntries(
       data.entries.where((e) => e.value is Map),
     );
@@ -419,7 +418,7 @@ class ReportService {
     final winners = missedByMedicationGroup.entries
         .where((e) => e.value == maxMissed)
         .map((e) => medicationNameByGroup[e.key] ?? 'Unknown')
-        .toSet() // عشان ما يتكرر نفس الاسم
+        .toSet()
         .toList()
       ..sort();
 

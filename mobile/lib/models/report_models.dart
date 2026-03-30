@@ -42,7 +42,7 @@ class ReportBarPoint {
 }
 
 class ReportInsights {
-  final String bestLabel; // Best Day / Best Week / Best Month
+  final String bestLabel; // Best Week / Best Month
   final String mostMissedMedication;
 
   const ReportInsights({
