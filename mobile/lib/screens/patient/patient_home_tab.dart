@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'package:ai_dpmms_mobile/services/app_refresh.dart';
 
 import '../../models/medication.dart';
 import '../../services/intake_service.dart';
 import '../../services/medications_service.dart';
 import '../role_select_screen.dart';
 import 'medication_details_screen.dart';
+import 'medication_form_screen.dart';
 
 class PatientHomeTab extends StatefulWidget {
   const PatientHomeTab({super.key});
@@ -17,38 +19,53 @@ class PatientHomeTab extends StatefulWidget {
 
 class _PatientHomeTabState extends State<PatientHomeTab> {
   final _medicationsService = MedicationsService();
-  final _intakeService = IntakeService();
+  final _intakeService      = IntakeService();
+  VoidCallback? _refreshListener;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _refreshListener = () {
+      if (mounted) setState(() {});
+    };
+
+    AppRefresh.notifier.addListener(_refreshListener!);
+  }
+
+  @override
+  void dispose() {
+    if (_refreshListener != null) {
+      AppRefresh.notifier.removeListener(_refreshListener!);
+    }
+    super.dispose();
+  }
 
   DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
-  String _formatToday() {
-    final now = DateTime.now();
-    return DateFormat('d MMMM, EEEE').format(now);
-  }
+  String _formatToday() =>
+      DateFormat('d MMMM, EEEE').format(DateTime.now());
+
 
   bool _isMedActiveForDate(Medication med, DateTime day) {
-    final start = _dateOnly(med.startDate);
+    final start  = _dateOnly(med.startDate);
     final target = _dateOnly(day);
-
     if (target.isBefore(start)) return false;
-
-    if (med.endDate != null) {
-      final end = _dateOnly(med.endDate!);
-      if (target.isAfter(end)) return false;
-    }
-
-    return med.isActive;
+    if (med.endDate != null &&
+        target.isAfter(_dateOnly(med.endDate!))) {
+          return false;
+        }
+    return true;
   }
 
-  List<Medication> _pickActiveVersionsPerGroup(List<Medication> meds, DateTime day) {
-    final activeToday = meds.where((m) => _isMedActiveForDate(m, day)).toList();
-
+  List<Medication> _pickActiveVersionsPerGroup(
+      List<Medication> meds, DateTime day) {
+    final activeToday =
+        meds.where((m) => _isMedActiveForDate(m, day)).toList();
     final Map<String, Medication> latestByGroup = {};
     for (final med in activeToday) {
-      final key = med.groupId;
-      latestByGroup[key] = med;
+      latestByGroup[med.groupId] = med;
     }
-
     final result = latestByGroup.values.toList();
     result.sort((a, b) {
       final at = a.times.isNotEmpty ? a.times.first : '99:99';
@@ -58,32 +75,54 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
     return result;
   }
 
+  List<({Medication med, String time, String doseKey})> _expandDoses(
+      List<Medication> meds) {
+    final result =
+        <({Medication med, String time, String doseKey})>[];
+    for (final med in meds) {
+      final times = med.times.isNotEmpty ? med.times : ['08:00'];
+      for (final t in times) {
+        result.add((med: med, time: t, doseKey: '${med.id}_$t'));
+      }
+    }
+
+    result.sort((a, b) => a.time.compareTo(b.time));
+    return result;
+  }
+
+  // menus
+
+  Future<void> _onRefresh() async {
+    AppRefresh.trigger();
+    await Future.delayed(const Duration(milliseconds: 400));
+  }
+
+
   Future<void> _showMoreMenu() async {
     final selected = await showMenu<String>(
       context: context,
       position: const RelativeRect.fromLTRB(1000, 145, 16, 0),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18)),
       items: const [
         PopupMenuItem(
           value: 'settings',
           child: ListTile(
             dense: true,
-            leading: Icon(Icons.settings_outlined, color: Color(0XFF1E3A8A)),
-            title: Text(
-              'Setting',
-              style: TextStyle(color: Color(0XFF1E3A8A)),
-            ),
+            leading: Icon(Icons.settings_outlined,
+                color: Color(0XFF1E3A8A)),
+            title: Text('Setting',
+                style: TextStyle(color: Color(0XFF1E3A8A))),
           ),
         ),
         PopupMenuItem(
           value: 'help',
           child: ListTile(
             dense: true,
-            leading: Icon(Icons.help_outline, color: Color(0XFF0B1B3A)),
-            title: Text(
-              'Help & Support',
-              style: TextStyle(color: Color(0XFF0B1B3A)),
-            ),
+            leading: Icon(Icons.help_outline,
+                color: Color(0XFF0B1B3A)),
+            title: Text('Help & Support',
+                style: TextStyle(color: Color(0XFF0B1B3A))),
           ),
         ),
         PopupMenuDivider(),
@@ -91,11 +130,10 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
           value: 'logout',
           child: ListTile(
             dense: true,
-            leading: Icon(Icons.logout, color: Color(0xFFDC2626)),
-            title: Text(
-              'Logout',
-              style: TextStyle(color: Color(0xFFDC2626)),
-            ),
+            leading:
+                Icon(Icons.logout, color: Color(0xFFDC2626)),
+            title: Text('Logout',
+                style: TextStyle(color: Color(0xFFDC2626))),
           ),
         ),
       ],
@@ -104,12 +142,9 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
     if (!mounted || selected == null) return;
 
     if (selected == 'settings') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const _SettingsPlaceholderScreen(),
-        ),
-      );
+      Navigator.push(context,
+          MaterialPageRoute(
+              builder: (_) => const _SettingsPlaceholderScreen()));
     } else if (selected == 'help') {
       _showHelpSupportSheet();
     } else if (selected == 'logout') {
@@ -128,7 +163,8 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
       context: context,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(26)),
       ),
       builder: (_) {
         return Padding(
@@ -137,42 +173,35 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
             mainAxisSize: MainAxisSize.min,
             children: const [
               SizedBox(
-                width: 42,
-                child: Divider(thickness: 4),
-              ),
+                  width: 42, child: Divider(thickness: 4)),
               SizedBox(height: 14),
-              Text(
-                'Help & Support',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
+              Text('Help & Support',
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A))),
               SizedBox(height: 8),
               Text(
                 'For help with medications, reminders, or account issues,\nplease contact support or talk to your doctor.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Color(0xFF64748B),
-                  height: 1.4,
-                ),
+                    color: Color(0xFF64748B), height: 1.4),
               ),
               SizedBox(height: 18),
               ListTile(
-                leading: Icon(Icons.email_outlined),
-                title: Text('support@ai-dpmms.com'),
-              ),
+                  leading: Icon(Icons.email_outlined),
+                  title: Text('support@ai-dpmms.com')),
               ListTile(
-                leading: Icon(Icons.phone_outlined),
-                title: Text('+970 000 000 000'),
-              ),
+                  leading: Icon(Icons.phone_outlined),
+                  title: Text('+970 000 000 000')),
             ],
           ),
         );
       },
     );
   }
+
+  // build
 
   @override
   Widget build(BuildContext context) {
@@ -182,7 +211,7 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
     }
 
     final today = DateTime.now();
-    const bg = Color(0xFFF3F6FB);
+    const bg    = Color(0xFFF3F6FB);
 
     return Container(
       color: bg,
@@ -193,36 +222,40 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final meds = medsSnap.data ?? [];
+          final meds      = medsSnap.data ?? [];
           final todayMeds = _pickActiveVersionsPerGroup(meds, today);
+
+
+          final doses = _expandDoses(todayMeds);
 
           return StreamBuilder<Map<String, dynamic>>(
             stream: _intakeService.watchDailyIntake(
-              uid: user.uid,
-              date: today,
-            ),
+                uid: user.uid, date: today),
             builder: (context, intakeSnap) {
               final intakeMap = intakeSnap.data ?? {};
 
+
               int takenCount = 0;
-              for (final med in todayMeds) {
-                final time = med.times.isNotEmpty ? med.times.first : '08:00';
-                final doseKey = '${med.id}_$time';
-                final dose = intakeMap[doseKey] as Map<String, dynamic>?;
-                final status = dose?['status'] as String?;
-                if (status == 'taken') {
+              for (final dose in doses) {
+                final d =
+                    intakeMap[dose.doseKey] as Map<String, dynamic>?;
+                if ((d?['status'] as String?) == 'taken') {
                   takenCount++;
                 }
               }
 
-              final totalCount = todayMeds.length;
-              final progress = totalCount == 0 ? 0.0 : takenCount / totalCount;
+              final totalCount = doses.length;
+              final progress =
+                  totalCount == 0 ? 0.0 : takenCount / totalCount;
 
-              return SingleChildScrollView(
+            return RefreshIndicator(
+              onRefresh: _onRefresh,
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Header row
                     Row(
                       children: [
                         Expanded(
@@ -235,23 +268,43 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
                             ),
                           ),
                         ),
+
+                        IconButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => MedicationFormScreen(
+                                  uid: user.uid,
+                                  effectiveDate:
+                                      _dateOnly(today),
+                                  source: MedicationFormSource
+                                      .home,
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.add_circle_outline,
+                              color: Color(0xFF1E3A8A), size: 26),
+                          tooltip: 'Add medication',
+                        ),
                         InkWell(
                           borderRadius: BorderRadius.circular(12),
                           onTap: () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => const _AiPlaceholderScreen(),
+                                builder: (_) =>
+                                    const _AiPlaceholderScreen(),
                               ),
                             );
                           },
                           child: const Padding(
                             padding: EdgeInsets.all(6),
                             child: Icon(
-                              Icons.auto_awesome_outlined,
-                              color: Color(0xFF334155),
-                              size: 22,
-                            ),
+                                Icons.auto_awesome_outlined,
+                                color: Color(0xFF334155),
+                                size: 22),
                           ),
                         ),
                         const SizedBox(width: 4),
@@ -260,29 +313,26 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
                           onTap: _showMoreMenu,
                           child: const Padding(
                             padding: EdgeInsets.all(6),
-                            child: Icon(
-                              Icons.more_vert,
-                              color: Color(0xFF334155),
-                              size: 22,
-                            ),
+                            child: Icon(Icons.more_vert,
+                                color: Color(0xFF334155), size: 22),
                           ),
                         ),
                       ],
                     ),
+
                     const SizedBox(height: 14),
 
-                    const Text(
-                      'Daily Progress',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF334155),
-                      ),
-                    ),
+                    // Daily Progress
+                    const Text('Daily Progress',
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF334155))),
                     const SizedBox(height: 8),
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+                      padding:
+                          const EdgeInsets.fromLTRB(12, 12, 12, 10),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(18),
@@ -295,17 +345,20 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
                         ],
                       ),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
                         children: [
                           ClipRRect(
-                            borderRadius: BorderRadius.circular(999),
+                            borderRadius:
+                                BorderRadius.circular(999),
                             child: LinearProgressIndicator(
                               minHeight: 16,
                               value: progress,
-                              backgroundColor: const Color(0xFF94A3B8),
-                              valueColor: const AlwaysStoppedAnimation(
-                                Color(0xFF0F2A64),
-                              ),
+                              backgroundColor:
+                                  const Color(0xFF94A3B8),
+                              valueColor:
+                                  const AlwaysStoppedAnimation(
+                                      Color(0xFF0F2A64)),
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -323,17 +376,16 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
 
                     const SizedBox(height: 18),
 
-                    const Text(
-                      "Today's Checklist",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF334155),
-                      ),
-                    ),
+                    // Checklist title
+                    const Text("Today's Checklist",
+                        style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF334155))),
                     const SizedBox(height: 12),
 
-                    if (todayMeds.isEmpty)
+                    // Empty state
+                    if (doses.isEmpty)
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(18),
@@ -350,66 +402,47 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
                         ),
                       ),
 
-                    ...todayMeds.map((med) {
-                      final time = med.times.isNotEmpty ? med.times.first : '08:00';
-                      final doseKey = '${med.id}_$time';
-                      final dose = intakeMap[doseKey] as Map<String, dynamic>?;
-                      final status = (dose?['status'] as String?) ?? 'pending';
+                    ...doses.map((dose) {
+                      final med     = dose.med;
+                      final time    = dose.time;
+                      final doseKey = dose.doseKey;
+
+                      final d = intakeMap[doseKey]
+                          as Map<String, dynamic>?;
+                      final status =
+                          (d?['status'] as String?) ?? 'pending';
 
                       Color mainColor;
                       String label;
-
-                      // Skip button
-                      Color skipBgColor;
-                      Color skipIconColor;
-                      Color skipTextColor;
-
-                      // Take button
-                      Color takeBgColor;
-                      Color takeIconColor;
-                      Color takeTextColor;
+                      Color skipBgColor, skipIconColor,
+                          skipTextColor;
+                      Color takeBgColor, takeIconColor,
+                          takeTextColor;
 
                       if (status == 'taken') {
-                        // Main selected color
-                        mainColor = const Color(0xFF16A34A);
-                        label = 'Taken';
-
-                        // Skip becomes faded/off
+                        mainColor  = const Color(0xFF16A34A);
+                        label      = 'Taken';
                         skipBgColor = const Color(0xFFF3F4F6);
                         skipIconColor = const Color(0xFF9AA0AA);
                         skipTextColor = const Color(0xFF9AA0AA);
-
-                        // Take active
                         takeBgColor = const Color(0xFFDCFCE7);
                         takeIconColor = const Color(0xFF16A34A);
                         takeTextColor = const Color(0xFF16A34A);
-
                       } else if (status == 'skipped') {
-                        // Main selected color
-                        mainColor = const Color(0xFFDC2626);
-                        label = 'Skipped';
-
-                        // Skip active
+                        mainColor  = const Color(0xFFDC2626);
+                        label      = 'Skipped';
                         skipBgColor = const Color(0xFFFEE2E2);
                         skipIconColor = const Color(0xFFDC2626);
                         skipTextColor = const Color(0xFFDC2626);
-
-                        // Take becomes faded/off
                         takeBgColor = const Color(0xFFF3F4F6);
                         takeIconColor = const Color(0xFF9AA0AA);
                         takeTextColor = const Color(0xFF9AA0AA);
-
                       } else {
-                        // Default before user chooses anything
-                        mainColor = const Color(0xFF1E3A8A);
-                        label = 'Scheduled';
-
-                        // Skip default
+                        mainColor  = const Color(0xFF1E3A8A);
+                        label      = 'Scheduled';
                         skipBgColor = const Color(0xFFDBEAFE);
                         skipIconColor = const Color(0xFF1E3A8A);
                         skipTextColor = const Color(0xFF1E3A8A);
-
-                        // Take default
                         takeBgColor = const Color(0xFFDBEAFE);
                         takeIconColor = const Color(0xFF1E3A8A);
                         takeTextColor = const Color(0xFF1E3A8A);
@@ -418,27 +451,30 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: InkWell(
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius:
+                              BorderRadius.circular(20),
                           onTap: () {
                             Navigator.of(context).push(
                               PageRouteBuilder(
                                 opaque: false,
                                 barrierDismissible: true,
-                                pageBuilder: (_, _, _) => 
-                                  MedicationDetailsScreen(
-                                    medication: med,
-                                    uid: user.uid,
-                                    effectiveDate: today,
-                                  )
+                                pageBuilder: (_, _, _) =>
+                                    MedicationDetailsScreen(
+                                  medication: med,
+                                  uid: user.uid,
+                                  effectiveDate: today,
+                                ),
                               ),
                             );
                           },
                           child: Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+                            padding: const EdgeInsets.fromLTRB(
+                                14, 12, 14, 10),
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(20),
+                              borderRadius:
+                                  BorderRadius.circular(20),
                               boxShadow: const [
                                 BoxShadow(
                                   blurRadius: 12,
@@ -450,10 +486,13 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
                             child: Column(
                               children: [
                                 Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
                                   children: [
-                                     Padding(
-                                      padding: EdgeInsets.only(top: 2),
+                                    Padding(
+                                      padding:
+                                          const EdgeInsets.only(
+                                              top: 2),
                                       child: Icon(
                                         Icons.medication_outlined,
                                         color: mainColor,
@@ -462,23 +501,44 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
                                     ),
                                     const SizedBox(width: 15),
                                     Expanded(
-                                      child: Text(
-                                        med.name,
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w800,
-                                          color: mainColor,
-                                        ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment
+                                                .start,
+                                        children: [
+                                          Text(
+                                            med.name,
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight:
+                                                  FontWeight.w800,
+                                              color: mainColor,
+                                            ),
+                                          ),
+
+                                          Text(
+                                            med.dosage,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              color:
+                                                  Color(0xFF64748B),
+                                              fontWeight:
+                                                  FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                     Column(
-                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
                                       children: [
                                         Text(
                                           time,
                                           style: TextStyle(
                                             fontSize: 16,
-                                            fontWeight: FontWeight.w800,
+                                            fontWeight:
+                                                FontWeight.w800,
                                             color: mainColor,
                                           ),
                                         ),
@@ -487,7 +547,8 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
                                           label,
                                           style: TextStyle(
                                             fontSize: 14,
-                                            fontWeight: FontWeight.w700,
+                                            fontWeight:
+                                                FontWeight.w700,
                                             color: mainColor,
                                           ),
                                         ),
@@ -495,7 +556,7 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height:10),
+                                const SizedBox(height: 10),
                                 Row(
                                   children: [
                                     Expanded(
@@ -507,13 +568,15 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
                                         textColor: skipTextColor,
                                         onTap: () async {
                                           if (status == 'skipped') {
-                                            await _intakeService.clearDoseStatus(
+                                            await _intakeService
+                                                .clearDoseStatus(
                                               uid: user.uid,
                                               date: today,
                                               doseKey: doseKey,
                                             );
                                           } else {
-                                            await _intakeService.setDoseStatus(
+                                            await _intakeService
+                                                .setDoseStatus(
                                               uid: user.uid,
                                               date: today,
                                               doseKey: doseKey,
@@ -531,16 +594,17 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
                                         bgColor: takeBgColor,
                                         iconColor: takeIconColor,
                                         textColor: takeTextColor,
-
                                         onTap: () async {
                                           if (status == 'taken') {
-                                            await _intakeService.clearDoseStatus(
+                                            await _intakeService
+                                                .clearDoseStatus(
                                               uid: user.uid,
                                               date: today,
                                               doseKey: doseKey,
                                             );
                                           } else {
-                                            await _intakeService.setDoseStatus(
+                                            await _intakeService
+                                                .setDoseStatus(
                                               uid: user.uid,
                                               date: today,
                                               doseKey: doseKey,
@@ -560,7 +624,8 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
                     }),
                   ],
                 ),
-              );
+              ),
+            );
             },
           );
         },
@@ -568,6 +633,8 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
     );
   }
 }
+
+// Action button
 
 class _ActionCircleButton extends StatelessWidget {
   final IconData icon;
@@ -600,56 +667,44 @@ class _ActionCircleButton extends StatelessWidget {
               color: bgColor,
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              icon,
-              color: iconColor,
-              size: 24,
-            ),
+            child: Icon(icon, color: iconColor, size: 24),
           ),
         ),
         const SizedBox(height: 6),
-        Text(
-          label,
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            color: textColor,
-          ),
-        ),
+        Text(label,
+            style: TextStyle(
+                fontWeight: FontWeight.w800, color: textColor)),
       ],
     );
   }
 }
 
+// Placeholders
+
 class _AiPlaceholderScreen extends StatelessWidget {
   const _AiPlaceholderScreen();
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('AI')),
       body: const Center(
-        child: Text(
-          'AI Screen Skeleton',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-        ),
-      ),
+          child: Text('AI Screen Skeleton',
+              style: TextStyle(
+                  fontSize: 18, fontWeight: FontWeight.w600))),
     );
   }
 }
 
 class _SettingsPlaceholderScreen extends StatelessWidget {
   const _SettingsPlaceholderScreen();
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: const Center(
-        child: Text(
-          'Settings Screen Skeleton',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-        ),
-      ),
+          child: Text('Settings Screen Skeleton',
+              style: TextStyle(
+                  fontSize: 18, fontWeight: FontWeight.w600))),
     );
   }
 }
