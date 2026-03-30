@@ -1,3 +1,4 @@
+// medication_details_screen.dart
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../models/medication.dart';
@@ -22,39 +23,46 @@ class MedicationDetailsScreen extends StatefulWidget {
       _MedicationDetailsScreenState();
 }
 
-class _MedicationDetailsScreenState extends State<MedicationDetailsScreen> {
+class _MedicationDetailsScreenState
+    extends State<MedicationDetailsScreen> {
   final _intakeService = IntakeService();
+
+  static const Color _dark  = Color(0xFF0B1738);
+  static const Color _red   = Color(0xFFDC2626);
+  static const Color _green = Color(0xFF16A34A);
+
+  // Delete
 
   Future<void> _confirmDelete() async {
     final service = MedicationsService();
 
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) {
-        return AlertDialog(
-          title: const Text('Delete medication?'),
-          content: Text(
-            'Are you sure you want to delete "${widget.medication.name}"?',
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20)),
+        title: const Text('Delete medication?',
+            style: TextStyle(fontWeight: FontWeight.w800)),
+        content: Text(
+            'Are you sure you want to delete "${widget.medication.name}"?'),
+        actions: [
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: _dark),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
           ),
-          actions: [
-            TextButton(
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF0B1738),
-              ),
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFDC2626),
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
     );
 
     if (ok != true) return;
@@ -69,6 +77,8 @@ class _MedicationDetailsScreenState extends State<MedicationDetailsScreen> {
     Navigator.pop(context);
   }
 
+  // Edit
+
   void _goEdit() {
     Navigator.push(
       context,
@@ -77,60 +87,83 @@ class _MedicationDetailsScreenState extends State<MedicationDetailsScreen> {
           uid: widget.uid,
           existing: widget.medication,
           effectiveDate: widget.effectiveDate,
+          source: MedicationFormSource.medicationsList,
         ),
       ),
     );
   }
 
+  // Texts helpers
+
   String get _timeText {
     if (widget.medication.times.isEmpty) return '--:--';
-    return widget.medication.times.join(' • ');
+    return widget.medication.times.join(' · ');
   }
 
   String get _scheduleText {
-    if (widget.medication.frequencyPerDay <= 1) {
-      return '1 time per day';
-    }
-    return '${widget.medication.frequencyPerDay} times per day';
+    final n = widget.medication.times.isNotEmpty
+        ? widget.medication.times.length
+        : widget.medication.frequencyPerDay;
+    return n <= 1 ? '1 time per day' : '$n times per day';
   }
+
+  String get _repeatText {
+    final days = widget.medication.repeatDays;
+    if (days.length == 7) return 'Every day';
+    if (days.isEmpty)     return 'No repeat days';
+
+
+    const order = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final sorted = days
+        .where(order.contains)
+        .toList()
+      ..sort((a, b) => order.indexOf(a).compareTo(order.indexOf(b)));
+    return sorted.join(', ');
+  }
+
+  // Recent activity
 
   Future<List<_ActivityItem>> _loadRecentActivity() async {
     final List<_ActivityItem> items = [];
-    final time = widget.medication.times.isNotEmpty
-        ? widget.medication.times.first
-        : '08:00';
-    final doseKey = '${widget.medication.id}_$time';
+
+    final times = widget.medication.times.isNotEmpty
+        ? widget.medication.times
+        : ['08:00'];
 
     for (int i = 1; i <= 4; i++) {
       final day = DateTime.now().subtract(Duration(days: i));
 
-      final status = await _intakeService.getDoseStatus(
-        uid: widget.uid,
-        date: day,
-        doseKey: doseKey,
-      );
+      for (final time in times) {
+        final doseKey = '${widget.medication.id}_$time';
+        final status = await _intakeService.getDoseStatus(
+          uid: widget.uid,
+          date: day,
+          doseKey: doseKey,
+        );
 
-      if (status == 'taken') {
-        items.add(
-          _ActivityItem(
+        if (status == 'taken') {
+          items.add(_ActivityItem(
             date: day,
+            time: time,
             label: 'Taken',
-            color: const Color(0xFF16A34A),
-          ),
-        );
-      } else if (status == 'skipped') {
-        items.add(
-          _ActivityItem(
+            color: _green,
+          ));
+        } else if (status == 'skipped') {
+          items.add(_ActivityItem(
             date: day,
+            time: time,
             label: 'Skipped',
-            color: const Color(0xFFDC2626),
-          ),
-        );
+            color: _red,
+          ));
+        }
       }
     }
 
+    items.sort((a, b) => b.date.compareTo(a.date));
     return items;
   }
+
+  // build
 
   @override
   Widget build(BuildContext context) {
@@ -140,7 +173,7 @@ class _MedicationDetailsScreenState extends State<MedicationDetailsScreen> {
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          /// tap outside = close
+          // Blur backdrop
           GestureDetector(
             onTap: () => Navigator.pop(context),
             child: BackdropFilter(
@@ -151,25 +184,22 @@ class _MedicationDetailsScreenState extends State<MedicationDetailsScreen> {
             ),
           ),
 
+          // X button
           Positioned(
             top: 80,
             left: 20,
             child: IconButton(
-              icon: const Icon(
-                Icons.close,
-                color: Color(0xFF0B1738),
-                size: 26,
-              ),
-              onPressed: () => 
-                Navigator.pop(context),
-              
+              icon: const Icon(Icons.close, color: _dark, size: 26),
+              onPressed: () => Navigator.pop(context),
             ),
           ),
 
+          // Card
           SafeArea(
             child: Center(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 18, vertical: 24),
                 child: GestureDetector(
                   onTap: () {},
                   child: Container(
@@ -177,7 +207,7 @@ class _MedicationDetailsScreenState extends State<MedicationDetailsScreen> {
                     constraints: const BoxConstraints(maxWidth: 420),
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0B1738),
+                      color: _dark,
                       borderRadius: BorderRadius.circular(28),
                       boxShadow: const [
                         BoxShadow(
@@ -192,43 +222,35 @@ class _MedicationDetailsScreenState extends State<MedicationDetailsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
 
-                          /// Header
+                          // Header
                           Row(
                             children: [
-                              const Icon(
-                                Icons.info_outline,
-                                color: Colors.white,
-                              ),
+                              const Icon(Icons.info_outline,
+                                  color: Colors.white),
                               const SizedBox(width: 8),
-                              const Text(
-                                'Details',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 18,
-                                ),
-                              ),
+                              const Text('Details',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 18,
+                                  )),
                               const Spacer(),
                               IconButton(
                                 onPressed: _confirmDelete,
-                                icon: const Icon(
-                                  Icons.delete_outline,
-                                  color: Color(0xFFDC2626),
-                                ),
+                                icon: const Icon(Icons.delete_outline,
+                                    color: _red),
                               ),
                               IconButton(
                                 onPressed: _goEdit,
-                                icon: const Icon(
-                                  Icons.edit_outlined,
-                                  color: Colors.white,
-                                ),
+                                icon: const Icon(Icons.edit_outlined,
+                                    color: Colors.white),
                               ),
                             ],
                           ),
 
                           const SizedBox(height: 14),
 
-                          /// Main details card
+                          // Main info card
                           _card(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -236,41 +258,20 @@ class _MedicationDetailsScreenState extends State<MedicationDetailsScreen> {
                                 _row(Icons.medication_outlined, med.name),
                                 const SizedBox(height: 10),
                                 _row(Icons.science_outlined, med.dosage),
-                                const SizedBox(height: 10),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: med.isActive
-                                        ? const Color(0xFFDCFCE7)
-                                        : const Color(0xFFF3F4F6),
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: Text(
-                                    med.isActive ? 'Active' : 'Inactive',
-                                    style: TextStyle(
-                                      color: med.isActive
-                                          ? const Color(0xFF16A34A)
-                                          : const Color(0xFF9AA0AA),
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                ),
                               ],
                             ),
                           ),
 
                           const SizedBox(height: 18),
 
+                          // Schedule
                           const _SectionTitle('Schedule'),
                           const SizedBox(height: 8),
-
                           _card(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+
                                 Text(
                                   _timeText,
                                   style: const TextStyle(
@@ -293,41 +294,64 @@ class _MedicationDetailsScreenState extends State<MedicationDetailsScreen> {
 
                           const SizedBox(height: 18),
 
+                          // Repeat days
+                          const _SectionTitle('Repeat'),
+                          const SizedBox(height: 8),
                           _card(
-                            child: Row(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(Icons.notifications_outlined),
-                                SizedBox(width: 10),
                                 Text(
-                                  'Reminder',
-                                  style: TextStyle(
+                                  _repeatText,
+                                  style: const TextStyle(
+                                    fontSize: 14,
                                     fontWeight: FontWeight.w700,
+                                    color: Color(0xFF334155),
                                   ),
                                 ),
-                                Spacer(),
-                                Switch(
-                                  value: true,
-                                  onChanged: null,
-                                  thumbColor: WidgetStateProperty.resolveWith((states) {
-                                    return Colors.white;
-                                  }),
-                                  trackColor: WidgetStateProperty.resolveWith((states){
-                                    if (states.contains(WidgetState.selected)){
-                                      return const Color(0XFF16A34A);
-                                    }
-                                    return Colors.grey;
-                                  }),
-                                )
-
+                                const SizedBox(height: 10),
+                                _RepeatDaysRow(
+                                    repeatDays: med.repeatDays),
                               ],
                             ),
                           ),
 
                           const SizedBox(height: 18),
 
+                          // Reminder
+                          _card(
+                            child: Row(
+                              children: [
+                                const Icon(
+                                    Icons.notifications_outlined),
+                                const SizedBox(width: 10),
+                                const Text('Reminder',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w700)),
+                                const Spacer(),
+                                Switch(
+                                  value: med.reminderEnabled,
+                                  onChanged: null, // read-only
+                                  thumbColor: WidgetStateProperty.all(
+                                      Colors.white),
+                                  trackColor: WidgetStateProperty
+                                      .resolveWith((states) {
+                                    if (states.contains(
+                                        WidgetState.selected)) {
+                                      return _green;
+                                    }
+                                    return Colors.grey;
+                                  }),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 18),
+
+                          // Note
                           const _SectionTitle('Note'),
                           const SizedBox(height: 8),
-
                           _card(
                             child: Text(
                               (med.notes?.trim().isNotEmpty ?? false)
@@ -342,9 +366,9 @@ class _MedicationDetailsScreenState extends State<MedicationDetailsScreen> {
 
                           const SizedBox(height: 18),
 
-                          const _SectionTitle('Recently Activity'),
+                          // Recent Activity
+                          const _SectionTitle('Recent Activity'),
                           const SizedBox(height: 8),
-
                           _card(
                             child: FutureBuilder<List<_ActivityItem>>(
                               future: _loadRecentActivity(),
@@ -354,10 +378,9 @@ class _MedicationDetailsScreenState extends State<MedicationDetailsScreen> {
                                   return const SizedBox(
                                     height: 40,
                                     child: Center(
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    ),
+                                        child:
+                                            CircularProgressIndicator(
+                                                strokeWidth: 2)),
                                   );
                                 }
 
@@ -374,20 +397,49 @@ class _MedicationDetailsScreenState extends State<MedicationDetailsScreen> {
                                 }
 
                                 return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
                                   children: items
-                                      .map(
-                                        (e) => Padding(
-                                          padding: const EdgeInsets.only(bottom: 4),
-                                          child: Text(
-                                            '${_formatShortDate(e.date)} - ${e.label}',
-                                            style: TextStyle(
-                                              color: e.color,
-                                              fontWeight: FontWeight.w700,
+                                      .map((e) => Padding(
+                                            padding:
+                                                const EdgeInsets.only(
+                                                    bottom: 6),
+                                            child: Row(
+                                              children: [
+                                                Container(
+                                                  width: 8,
+                                                  height: 8,
+                                                  decoration:
+                                                      BoxDecoration(
+                                                    color: e.color,
+                                                    shape:
+                                                        BoxShape.circle,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  '${_formatShortDate(e.date)}  ${e.time}',
+                                                  style: const TextStyle(
+                                                    color: Color(
+                                                        0xFF334155),
+                                                    fontSize: 13,
+                                                    fontWeight:
+                                                        FontWeight.w600,
+                                                  ),
+                                                ),
+                                                const Spacer(),
+                                                Text(
+                                                  e.label,
+                                                  style: TextStyle(
+                                                    color: e.color,
+                                                    fontWeight:
+                                                        FontWeight.w700,
+                                                    fontSize: 13,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
-                                          ),
-                                        ),
-                                      )
+                                          ))
                                       .toList(),
                                 );
                               },
@@ -405,6 +457,8 @@ class _MedicationDetailsScreenState extends State<MedicationDetailsScreen> {
       ),
     );
   }
+
+  // widget helpers
 
   static String _formatShortDate(DateTime d) {
     const months = [
@@ -429,11 +483,7 @@ class _MedicationDetailsScreenState extends State<MedicationDetailsScreen> {
   Widget _row(IconData icon, String text) {
     return Row(
       children: [
-        Icon(
-          icon,
-          size: 20,
-          color: const Color(0xFF0F172A),
-        ),
+        Icon(icon, size: 20, color: const Color(0xFF0F172A)),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
@@ -448,6 +498,51 @@ class _MedicationDetailsScreenState extends State<MedicationDetailsScreen> {
     );
   }
 }
+
+// Repeat Days Row — read-only
+
+class _RepeatDaysRow extends StatelessWidget {
+  final List<String> repeatDays;
+
+  static const List<String> _labels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  static const List<String> _keys = [
+    'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'
+  ];
+
+  const _RepeatDaysRow({required this.repeatDays});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: List.generate(7, (i) {
+        final selected = repeatDays.contains(_keys[i]);
+        return Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: selected
+                ? const Color(0xFF0B1738)
+                : const Color(0xFFF1F5F9),
+          ),
+          child: Center(
+            child: Text(
+              _labels[i],
+              style: TextStyle(
+                color: selected ? Colors.white : const Color(0xFF94A3B8),
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+// Section title
 
 class _SectionTitle extends StatelessWidget {
   final String title;
@@ -466,13 +561,17 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
+// Activity item model
+
 class _ActivityItem {
   final DateTime date;
+  final String time;
   final String label;
   final Color color;
 
   _ActivityItem({
     required this.date,
+    required this.time,
     required this.label,
     required this.color,
   });
