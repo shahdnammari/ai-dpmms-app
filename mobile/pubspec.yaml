@@ -33,7 +33,13 @@ dependencies:
   table_calendar: ^3.1.2
   flutter_slidable: ^3.1.1
   flutter_local_notifications: ^17.2.2
-  timezone: ^0.9.4
+  flutter_timezone: ^3.0.0
+  timezone: ^0.9.2
+  pdf: ^3.11.0
+  printing: ^5.13.4
+  share_plus: ^10.0.2
+  path_provider: ^2.1.4
+
   google_fonts: ^6.2.1
   intl: ^0.19.0
 
