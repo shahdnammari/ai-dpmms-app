@@ -7,6 +7,7 @@ import '../patient/patient_home_tab.dart';
 import '../patient/medications_list_screen.dart';
 import '../patient/notifications_screen.dart';
 import '../patient/reports_screen.dart';
+import '../profile.dart';
 
 class PatientShell extends StatefulWidget {
   const PatientShell({super.key});
@@ -17,6 +18,7 @@ class PatientShell extends StatefulWidget {
 
 class _PatientShellState extends State<PatientShell> {
   int _index = 0;
+  String? _overrideUsername;
 
   final List<String> _titles = const [
     'Home',
@@ -48,14 +50,12 @@ class _PatientShellState extends State<PatientShell> {
     }
   }
 
-  Future<Map<String, dynamic>?> _getUserData() async {
+  Stream<DocumentSnapshot<Map<String, dynamic>>> _userStream() {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return null;
-    final doc = await FirebaseFirestore.instance
+    return FirebaseFirestore.instance
         .collection('users')
-        .doc(user.uid)
-        .get();
-    return doc.data();
+        .doc(user!.uid)
+        .snapshots();
   }
 
   @override
@@ -71,25 +71,27 @@ class _PatientShellState extends State<PatientShell> {
         child: Column(
           children: [
             // Shell Header
-            FutureBuilder<Map<String, dynamic>?>(
-              future: _getUserData(),
+            StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+              stream: _userStream(),
               builder: (context, snapshot) {
-                final data = snapshot.data;
+                final data = snapshot.data?.data();
+
                 final username =
-                    (data?['username'] as String?)?.trim().isNotEmpty == true
-                        ? data!['username'] as String
-                        : (FirebaseAuth.instance.currentUser?.displayName
-                                    ?.trim()
-                                    .isNotEmpty ==
-                                true
-                            ? FirebaseAuth
-                                .instance.currentUser!.displayName!
-                            : 'Patient');
+                    (data?['name'] as String?)?.trim().isNotEmpty == true
+                        ? data!['name'] as String
+                        : ((data?['username'] as String?)?.trim().isNotEmpty == true
+                            ? data!['username'] as String
+                            : (FirebaseAuth.instance.currentUser?.displayName
+                                        ?.trim()
+                                        .isNotEmpty ==
+                                    true
+                                ? FirebaseAuth.instance.currentUser!.displayName!
+                                : 'Patient'));
 
                 return Container(
                   width: double.infinity,
                   padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-                  decoration: const BoxDecoration(color: headerColor),
+                  decoration: const BoxDecoration(color: Color(0xFF1E3A8A)),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
@@ -123,8 +125,7 @@ class _PatientShellState extends State<PatientShell> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) =>
-                                  const _ProfilePlaceholderScreen(),
+                              builder: (_) => const ProfileScreen(),
                             ),
                           );
                         },
@@ -134,11 +135,13 @@ class _PatientShellState extends State<PatientShell> {
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: Colors.white.withValues(alpha: .12),
-                            border: Border.all(
-                                color: Colors.white24, width: 1),
+                            border: Border.all(color: Colors.white24, width: 1),
                           ),
-                          child: const Icon(Icons.person_outline,
-                              color: Colors.white, size: 28),
+                          child: const Icon(
+                            Icons.person_outline,
+                            color: Colors.white,
+                            size: 28,
+                          ),
                         ),
                       ),
                     ],
@@ -146,7 +149,6 @@ class _PatientShellState extends State<PatientShell> {
                 );
               },
             ),
-
             // Page content
             Expanded(child: _buildCurrentPage()),
           ],
@@ -247,24 +249,6 @@ class _NavItem extends StatelessWidget {
           color: selected ? activeColor : inactiveColor,
           size: 26,
         ),
-      ),
-    );
-  }
-}
-
-// Placeholders
-
-class _ProfilePlaceholderScreen extends StatelessWidget {
-  const _ProfilePlaceholderScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
-      body: const Center(
-        child: Text('Profile Page Skeleton',
-            style:
-                TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
       ),
     );
   }
