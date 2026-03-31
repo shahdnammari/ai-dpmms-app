@@ -303,7 +303,7 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
                             padding: EdgeInsets.all(6),
                             child: Icon(
                                 Icons.auto_awesome_outlined,
-                                color: Color(0xFF334155),
+                                color: Color(0xFF1E3A8A),
                                 size: 22),
                           ),
                         ),
