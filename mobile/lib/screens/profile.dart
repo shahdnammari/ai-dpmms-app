@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'role_select_screen.dart';
+
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -322,9 +324,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (!mounted) return;
 
-      Navigator.pushNamedAndRemoveUntil(
+      Navigator.pushAndRemoveUntil(
         context,
-        '/role-select',
+        MaterialPageRoute(builder: (_) => const RoleSelectScreen()),
         (route) => false,
       );
     } catch (e) {
@@ -470,7 +472,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            value: (_selectedGender == 'Female' || _selectedGender == 'Male')
+            initialValue: (_selectedGender == 'Female' || _selectedGender == 'Male')
                 ? _selectedGender
                 : null,
             decoration: _inputDecoration('Gender'),
@@ -570,10 +572,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
         final canPop = await _handleBack();
-        return canPop;
+        if (canPop && context.mounted) Navigator.pop(context);
       },
       child: Scaffold(
         backgroundColor: _bg,
@@ -585,9 +589,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             icon: const Icon(Icons.arrow_back_ios, color: Colors.black87),
             onPressed: () async {
               final canPop = await _handleBack();
-              if (canPop && mounted) {
-                Navigator.pop(context);
-              }
+              if (canPop && context.mounted) Navigator.pop(context);
             },
           ),
           title: const Text(
