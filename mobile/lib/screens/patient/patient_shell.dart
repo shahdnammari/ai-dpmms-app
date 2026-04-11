@@ -18,7 +18,6 @@ class PatientShell extends StatefulWidget {
 
 class _PatientShellState extends State<PatientShell> {
   int _index = 0;
-  String? _overrideUsername;
 
   final List<String> _titles = const [
     'Home',
@@ -60,8 +59,6 @@ class _PatientShellState extends State<PatientShell> {
 
   @override
   Widget build(BuildContext context) {
-    // Form header
-    const headerColor = Color(0xFF1E3A8A);
     const bg = Color(0xFFF3F6FB);
 
     return Scaffold(
