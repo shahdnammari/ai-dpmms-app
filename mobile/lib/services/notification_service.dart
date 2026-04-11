@@ -128,15 +128,6 @@ class NotificationService {
               timeString: times[ti],
             );
           }
-
-          await _upsertScheduledInboxNotification(
-            uid: uid,
-            medDocId: medDocId,
-            medName: medName,
-            when: when,
-            timeIndex: ti,
-            timeString: times[ti],
-          );
         }
       }
     } catch (e) {
