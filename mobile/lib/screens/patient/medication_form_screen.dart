@@ -534,7 +534,7 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
                   const SizedBox(height: 20),
 
                   // Dose
-                  _sectionLabel('Dose', icon: Icons.colorize_outlined),
+                  _sectionLabel('Dose', icon: Icons.science_outlined),
                   TextField(
                     controller: _dosage,
                     decoration: _fieldDecoration('500mg'),
@@ -551,7 +551,7 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
                   const SizedBox(height: 20),
 
                   // Repeat
-                  _sectionLabel('Repeat'),
+                  _sectionLabel('Repeat', icon: Icons.repeat),
                   _buildRepeatSection(),
 
                   const SizedBox(height: 20),

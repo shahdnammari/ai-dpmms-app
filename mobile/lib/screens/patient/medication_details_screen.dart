@@ -184,16 +184,6 @@ class _MedicationDetailsScreenState
             ),
           ),
 
-          // X button
-          Positioned(
-            top: 80,
-            left: 20,
-            child: IconButton(
-              icon: const Icon(Icons.close, color: _dark, size: 26),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ),
-
           // Card
           SafeArea(
             child: Center(
@@ -225,6 +215,11 @@ class _MedicationDetailsScreenState
                           // Header
                           Row(
                             children: [
+                              IconButton(
+                                icon: const Icon(Icons.close,
+                                    color: Colors.white, size: 20),
+                                onPressed: () => Navigator.pop(context),
+                              ),
                               const Icon(Icons.info_outline,
                                   color: Colors.white),
                               const SizedBox(width: 8),
