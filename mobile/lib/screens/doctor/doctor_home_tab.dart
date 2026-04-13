@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
 import '../role_select_screen.dart';
+import 'patient_details_screen.dart';
 
 // ─── Severity ─────────────────────────────────────────────────────────────────
 
@@ -87,6 +88,8 @@ class _DoctorHomeTabState extends State<DoctorHomeTab> {
     super.initState();
     _statsFuture = _loadPatientStats();
   }
+
+  void _reloadStats() => setState(() { _statsFuture = _loadPatientStats(); });
 
   // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -472,6 +475,7 @@ class _DoctorHomeTabState extends State<DoctorHomeTab> {
                                     ? adherent
                                     : atRisk,
                             filter: _activeFilter!,
+                            onDeleted: _reloadStats,
                           ),
                   ),
               ],
@@ -889,11 +893,13 @@ class _AlertActionBtn extends StatelessWidget {
 class _FilteredPatientList extends StatelessWidget {
   final List<_PatientStat> stats;
   final String filter;
+  final VoidCallback? onDeleted;
 
   const _FilteredPatientList({
     super.key,
     required this.stats,
     required this.filter,
+    this.onDeleted,
   });
 
   String get _title {
@@ -973,7 +979,7 @@ class _FilteredPatientList extends StatelessWidget {
             ),
           )
         else
-          ...stats.map((s) => _PatientFilterCard(stat: s, accent: _accent)),
+          ...stats.map((s) => _PatientFilterCard(stat: s, accent: _accent, onDeleted: onDeleted)),
       ],
     );
   }
@@ -982,8 +988,13 @@ class _FilteredPatientList extends StatelessWidget {
 class _PatientFilterCard extends StatelessWidget {
   final _PatientStat stat;
   final Color accent;
+  final VoidCallback? onDeleted;
 
-  const _PatientFilterCard({required this.stat, required this.accent});
+  const _PatientFilterCard({
+    required this.stat,
+    required this.accent,
+    this.onDeleted,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -991,7 +1002,25 @@ class _PatientFilterCard extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: Container(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () async {
+          final deleted = await Navigator.of(context).push<bool>(
+            PageRouteBuilder<bool>(
+              opaque: false,
+              barrierColor: Colors.transparent,
+              transitionDuration: const Duration(milliseconds: 380),
+              reverseTransitionDuration: const Duration(milliseconds: 300),
+              pageBuilder: (ctx, a1, a2) => PatientDetailsScreen(
+                patientUid: stat.uid,
+                patientName: stat.name,
+              ),
+              transitionsBuilder: (ctx, a1, a2, child) => child,
+            ),
+          );
+          if (deleted == true) onDeleted?.call();
+        },
+        child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -1044,6 +1073,7 @@ class _PatientFilterCard extends StatelessWidget {
                 color: Color(0xFF94A3B8), size: 20),
           ],
         ),
+      ),
       ),
     );
   }

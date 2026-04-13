@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../services/app_refresh.dart';
 import '../profile.dart';
 import 'doctor_home_tab.dart';
 import 'doctor_patients_tab.dart';
@@ -25,7 +26,7 @@ class _DoctorShellState extends State<DoctorShell> {
     'Reports',
   ];
 
-  // ─── greeting ───────────────────────────────────────────────────────────────
+  // greeting
 
   String _greeting() {
     final hour = DateTime.now().hour;
@@ -34,10 +35,13 @@ class _DoctorShellState extends State<DoctorShell> {
     return 'Good evening';
   }
 
-  // ─── navigation ─────────────────────────────────────────────────────────────
+  // navigation
 
   void _onTap(int i) {
-    if (_index == i) return;
+    if (_index == i) {
+      AppRefresh.trigger(); // re-tap current tab → refresh its content
+      return;
+    }
     setState(() => _index = i);
     if (i == 2) _markAlertsAsRead();
   }
@@ -55,7 +59,7 @@ class _DoctorShellState extends State<DoctorShell> {
     await batch.commit();
   }
 
-  // ─── streams ────────────────────────────────────────────────────────────────
+  // streams
 
   Stream<DocumentSnapshot<Map<String, dynamic>>> _userStream() {
     final uid = FirebaseAuth.instance.currentUser!.uid;
@@ -70,7 +74,7 @@ class _DoctorShellState extends State<DoctorShell> {
         .map((snap) => snap.docs.length);
   }
 
-  // ─── page builder ────────────────────────────────────────────────────────────
+  // page builder
 
   Widget _buildCurrentPage() {
     switch (_index) {
@@ -82,7 +86,7 @@ class _DoctorShellState extends State<DoctorShell> {
     }
   }
 
-  // ─── build ───────────────────────────────────────────────────────────────────
+  // build
 
   @override
   Widget build(BuildContext context) {
@@ -92,7 +96,7 @@ class _DoctorShellState extends State<DoctorShell> {
       body: SafeArea(
         child: Column(
           children: [
-            // ── Shell Header ───────────────────────────────────────────
+            // Shell Header
             StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
               stream: _userStream(),
               builder: (context, snapshot) {
@@ -175,13 +179,13 @@ class _DoctorShellState extends State<DoctorShell> {
               },
             ),
 
-            // ── Page content ───────────────────────────────────────────
+            // Page content
             Expanded(child: _buildCurrentPage()),
           ],
         ),
       ),
 
-      // ── Bottom nav with badge ────────────────────────────────────────
+      // Bottom nav with badge
       bottomNavigationBar: StreamBuilder<int>(
         stream: _unreadStream(),
         builder: (context, badgeSnap) {
@@ -244,7 +248,7 @@ class _DoctorShellState extends State<DoctorShell> {
   }
 }
 
-// ─── Nav item ─────────────────────────────────────────────────────────────────
+// Nav item
 
 class _NavItem extends StatelessWidget {
   final IconData icon;
