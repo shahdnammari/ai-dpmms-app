@@ -182,10 +182,9 @@ class _LoginScreenState extends State<LoginScreen> {
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 22),
             child: Column(
-              
               children: [
                 const SizedBox(height: 20),
 
@@ -213,7 +212,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 150),
+                const SizedBox(height: 32),
 
                 _NiceField(
                   label: "Email",

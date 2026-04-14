@@ -158,7 +158,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 22),
             child: Column(
               
@@ -173,7 +173,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     height: 1.35,
                   ),
                 ),
-                const SizedBox(height: 150),
+                const SizedBox(height: 32),
 
                 _NiceField(
                   label: "User Name",
