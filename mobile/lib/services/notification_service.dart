@@ -70,7 +70,8 @@ class NotificationService {
       final today = _dateOnly(DateTime.now());
       final d0 = _dateOnly(startDate);
 
-      final windowEnd = today.add(const Duration(days: 90));
+      // 30-day window — enough for local notifications; reschedules on next open
+      final windowEnd = today.add(const Duration(days: 30));
 
       final from = d0.isAfter(today) ? d0 : today;
       final realEnd = endDate != null ? _dateOnly(endDate) : windowEnd;
@@ -85,28 +86,29 @@ class NotificationService {
         importance: Importance.max,
         priority: Priority.high,
       );
-
       const details = NotificationDetails(android: androidDetails);
 
       final now = DateTime.now();
-      int dayOffset = 0;
+      final inboxWriteUntil = today.add(const Duration(days: 7));
+      final inboxItems = <({String id, Map<String, dynamic> data})>[];
 
+      int dayOffset = 0;
       for (DateTime d = from;
           !d.isAfter(to);
           d = d.add(const Duration(days: 1)), dayOffset++) {
+        // Schedule all time slots for this single day in parallel
+        final dayFutures = <Future<void>>[];
+
         for (int ti = 0; ti < times.length; ti++) {
           final parsed = _parseHHmm(times[ti]);
           final when = DateTime(d.year, d.month, d.day, parsed.h, parsed.m);
-
           if (when.isBefore(now)) continue;
 
           final tzWhen = tz.TZDateTime.from(when, tz.local);
           final payload =
               '$uid|$medDocId|$medName|${when.millisecondsSinceEpoch}|$ti|${times[ti]}';
 
-          final inboxWriteUntil = today.add(const Duration(days: 7));
-
-          await _plugin.zonedSchedule(
+          dayFutures.add(_plugin.zonedSchedule(
             _id(medDocId, dayOffset, ti),
             'Medication Reminder',
             'Time to take $medName',
@@ -116,18 +118,50 @@ class NotificationService {
             uiLocalNotificationDateInterpretation:
                 UILocalNotificationDateInterpretation.absoluteTime,
             payload: payload,
-          );
+          ));
 
           if (!when.isAfter(inboxWriteUntil)) {
-            await _upsertScheduledInboxNotification(
-              uid: uid,
-              medDocId: medDocId,
-              medName: medName,
-              when: when,
-              timeIndex: ti,
-              timeString: times[ti],
+            final inboxId =
+                '${medDocId}_${when.millisecondsSinceEpoch}_${times[ti].replaceAll(':', '_')}';
+            inboxItems.add((
+              id: inboxId,
+              data: {
+                'type': 'med',
+                'title': 'Time to take $medName',
+                'body': 'Scheduled at ${times[ti]}',
+                'medication_id': medDocId,
+                'event_time': Timestamp.fromDate(when),
+                'scheduled_time': times[ti],
+                'time_index': ti,
+                'createdAt': FieldValue.serverTimestamp(),
+                'read': false,
+                'actionStatus': 'pending',
+                'openedFromSystemTap': false,
+              },
+            ));
+          }
+        }
+
+        if (dayFutures.isNotEmpty) await Future.wait(dayFutures);
+
+        // Yield to the event loop after each day so the UI stays responsive
+        await Future<void>.delayed(Duration.zero);
+      }
+
+      // Commit all inbox writes in one batch
+      if (inboxItems.isNotEmpty) {
+        final db = FirebaseFirestore.instance;
+        for (int i = 0; i < inboxItems.length; i += 500) {
+          final batch = db.batch();
+          for (final item in inboxItems.skip(i).take(500)) {
+            batch.set(
+              db.collection('users').doc(uid)
+                  .collection('inbox_notifications').doc(item.id),
+              item.data,
+              SetOptions(merge: true),
             );
           }
+          await batch.commit();
         }
       }
     } catch (e) {
@@ -185,40 +219,6 @@ class NotificationService {
     }
   }
 
-  Future<void> _upsertScheduledInboxNotification({
-    required String uid,
-    required String medDocId,
-    required String medName,
-    required DateTime when,
-    required int timeIndex,
-    required String timeString,
-  }) async {
-    try {
-      final inboxId =
-          '${medDocId}_${when.millisecondsSinceEpoch}_${timeString.replaceAll(':', '_')}';
-
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('inbox_notifications')
-          .doc(inboxId)
-          .set({
-        'type': 'med',
-        'title': 'Time to take $medName',
-        'body': 'Scheduled at $timeString',
-        'medication_id': medDocId,
-        'event_time': Timestamp.fromDate(when),
-        'scheduled_time': timeString,
-        'time_index': timeIndex,
-        'createdAt': FieldValue.serverTimestamp(),
-        'read': false,
-        'actionStatus': 'pending',
-        'openedFromSystemTap': false,
-      }, SetOptions(merge: true));
-    } catch (e) {
-      rethrow;
-    }
-  }
 
   Future<void> _markInboxNotificationOpened({
     required String uid,

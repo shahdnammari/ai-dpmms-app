@@ -1,6 +1,7 @@
 // medication_form_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/medication.dart';
 import '../../services/medications_service.dart';
 
@@ -44,6 +45,10 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
   static const Color _accent = Color(0xFF1E3A8A);
   static const Color _bg     = Color(0xFFF3F6FB);
   static const Color _red    = Color(0xFFDC2626);
+
+  // True when a doctor is editing a patient's medication (uid != current user)
+  bool get _isDoctor =>
+      widget.uid != (FirebaseAuth.instance.currentUser?.uid ?? '');
 
   bool get _hasData {
     return _name.text.trim().isNotEmpty ||
@@ -720,7 +725,10 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
   // Enable Reminder toggle
 
   Widget _buildReminderToggle() {
-    return Container(
+    final disabled = _isDoctor;
+    return Opacity(
+      opacity: disabled ? 0.45 : 1.0,
+      child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -742,7 +750,7 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
           const Spacer(),
           Switch(
             value: _reminderEnabled,
-            onChanged: (v) => setState(() => _reminderEnabled = v),
+            onChanged: disabled ? null : (v) => setState(() => _reminderEnabled = v),
             activeThumbColor: Colors.white,
             activeTrackColor: const Color(0xFF16A34A),
             inactiveThumbColor: Colors.white,
@@ -750,7 +758,8 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
           ),
         ],
       ),
-    );
+    ),   // Container
+    );   // Opacity
   }
 
   // Bottom bar

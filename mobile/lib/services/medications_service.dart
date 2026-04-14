@@ -1,4 +1,5 @@
 // medications_service.dart
+import 'dart:async' show unawaited;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/medication.dart';
 import 'notification_service.dart';
@@ -57,16 +58,16 @@ class MedicationsService {
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
-    // ReminderEnabled
+    // Schedule notifications in the background — don't block the save
     if (reminderEnabled) {
-      await NotificationService.instance.scheduleMedicationRange(
+      unawaited(NotificationService.instance.scheduleMedicationRange(
         uid: uid,
         medDocId: doc.id,
         medName: name.trim(),
         startDate: startDate,
         endDate: endDate,
         times: times,
-      );
+      ));
     }
   }
 
@@ -146,14 +147,14 @@ class MedicationsService {
       
 
       if (remEnabled) {
-        await NotificationService.instance.scheduleMedicationRange(
+        unawaited(NotificationService.instance.scheduleMedicationRange(
           uid: uid,
           medDocId: oldMed.id,
           medName: name.trim(),
           startDate: oldStart,
           endDate: targetEnd,
           times: times,
-        );
+        ));
       }
 
       return;
@@ -194,29 +195,28 @@ class MedicationsService {
 
     await batch.commit();
 
-    // Notifications
-    
+    // Schedule notifications in the background — don't block the save
     if (oldMed.reminderEnabled) {
-      await NotificationService.instance.scheduleMedicationRange(
+      unawaited(NotificationService.instance.scheduleMedicationRange(
         uid: uid,
         medDocId: oldMed.id,
         medName: oldMed.name,
         startDate: oldStart,
         endDate: prevEnd,
         times: oldMed.times,
-      );
+      ));
     }
 
     if (remEnabled) {
       final newEnd = targetEnd ?? oldEnd;
-      await NotificationService.instance.scheduleMedicationRange(
+      unawaited(NotificationService.instance.scheduleMedicationRange(
         uid: uid,
         medDocId: newDoc.id,
         medName: name.trim(),
         startDate: eff,
         endDate: newEnd,
         times: times,
-      );
+      ));
     }
   }
 
