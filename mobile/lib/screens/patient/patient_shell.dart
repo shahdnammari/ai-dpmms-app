@@ -26,6 +26,13 @@ class _PatientShellState extends State<PatientShell> {
     'Reports',
   ];
 
+  String _greeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
+  }
+
   void _onTap(int i) {
     if (_index == i) {
       AppRefresh.trigger();
@@ -97,7 +104,7 @@ class _PatientShellState extends State<PatientShell> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Welcome, $username',
+                              '${_greeting()}, $username',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 20,
