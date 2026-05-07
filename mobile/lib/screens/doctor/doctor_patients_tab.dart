@@ -222,29 +222,39 @@ class _DoctorPatientsTabState extends State<DoctorPatientsTab> {
     setState(() => _patients.removeAt(idx));
 
     bool undone = false;
-    ScaffoldMessenger.of(context)
-      ..removeCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-          content: Text('"${patient.name}" deleted'),
-          duration: const Duration(seconds: 5),
-          action: SnackBarAction(
-            label: 'Undo',
-            onPressed: () {
-              undone = true;
-              setState(() => _patients.insert(
-                  idx.clamp(0, _patients.length), patient));
-            },
-          ),
-        )).closed.then((_) async {
-          if (!undone) {
-            try {
-              await FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(patient.uid)
-                  .delete();
-            } catch (_) {}
-          }
-        });
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.removeCurrentSnackBar();
+    final controller = messenger.showSnackBar(SnackBar(
+      content: Text('"${patient.name}" removed'),
+      duration: const Duration(seconds: 4),
+      action: SnackBarAction(
+        label: 'Undo',
+        onPressed: () {
+          undone = true;
+          setState(() => _patients.insert(
+              idx.clamp(0, _patients.length), patient));
+        },
+      ),
+    ));
+
+    controller.closed.then((_) async {
+      if (undone) return;
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(patient.uid)
+            .delete();
+      } catch (e) {
+        // Re-insert the patient and surface the error
+        if (mounted) {
+          setState(() => _patients.insert(
+              idx.clamp(0, _patients.length), patient));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to delete "${patient.name}": $e')),
+          );
+        }
+      }
+    });
   }
 
   Future<void> _confirmDelete(_PatientInfo patient) async {
