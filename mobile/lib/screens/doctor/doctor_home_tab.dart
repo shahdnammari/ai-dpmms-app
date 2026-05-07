@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 import '../role_select_screen.dart';
 import 'patient_details_screen.dart';
 
-// ─── Severity ─────────────────────────────────────────────────────────────────
+// Severity
 
 enum _Severity { critical, warning, info }
 
@@ -28,7 +28,7 @@ extension _SeverityX on _Severity {
   }
 }
 
-// ─── Models ───────────────────────────────────────────────────────────────────
+// Models
 
 class _PatientStat {
   final String uid;
@@ -68,7 +68,7 @@ class _Alert {
   }
 }
 
-// ─── Main widget ──────────────────────────────────────────────────────────────
+// Main widget
 
 class DoctorHomeTab extends StatefulWidget {
   const DoctorHomeTab({super.key});
@@ -91,7 +91,7 @@ class _DoctorHomeTabState extends State<DoctorHomeTab> {
 
   void _reloadStats() => setState(() { _statsFuture = _loadPatientStats(); });
 
-  // ─── helpers ────────────────────────────────────────────────────────────────
+  // helpers
 
   String _formatToday() => DateFormat('d MMMM, EEEE').format(DateTime.now());
 
@@ -111,7 +111,7 @@ class _DoctorHomeTabState extends State<DoctorHomeTab> {
   void _toggleFilter(String key) =>
       setState(() => _activeFilter = _activeFilter == key ? null : key);
 
-  // ─── menu ────────────────────────────────────────────────────────────────────
+  // menu
 
   Future<void> _showMoreMenu() async {
     final selected = await showMenu<String>(
@@ -202,18 +202,12 @@ class _DoctorHomeTabState extends State<DoctorHomeTab> {
     );
   }
 
-  // ─── quick action callbacks ──────────────────────────────────────────────────
+  // quick action callbacks
 
   void _onAddPatient() => ScaffoldMessenger.of(context)
       .showSnackBar(const SnackBar(content: Text('Add Patient — coming soon')));
 
-  void _onSendReminderGlobal() => ScaffoldMessenger.of(context)
-      .showSnackBar(const SnackBar(content: Text('Send Reminder — coming soon')));
-
-  void _onViewReports() => ScaffoldMessenger.of(context)
-      .showSnackBar(const SnackBar(content: Text('View Reports — coming soon')));
-
-  // ─── alert action callbacks ──────────────────────────────────────────────────
+  // alert action callbacks
 
   Future<void> _sendReminderFor(_Alert alert) async {
     await FirebaseFirestore.instance
@@ -233,7 +227,7 @@ class _DoctorHomeTabState extends State<DoctorHomeTab> {
     );
   }
 
-  // ─── data loading ────────────────────────────────────────────────────────────
+  // data loading
 
   Future<double> _adherenceFor(String uid) async {
     final db = FirebaseFirestore.instance;
@@ -283,7 +277,7 @@ class _DoctorHomeTabState extends State<DoctorHomeTab> {
     return stats;
   }
 
-  // ─── build ───────────────────────────────────────────────────────────────────
+  // build
 
   @override
   Widget build(BuildContext context) {
@@ -319,7 +313,7 @@ class _DoctorHomeTabState extends State<DoctorHomeTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Date row ────────────────────────────────────────────
+                // Date row
                 Row(
                   children: [
                     Expanded(
@@ -332,6 +326,16 @@ class _DoctorHomeTabState extends State<DoctorHomeTab> {
                         ),
                       ),
                     ),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: _onAddPatient,
+                      child: const Padding(
+                        padding: EdgeInsets.all(6),
+                        child: Icon(Icons.person_add_outlined,
+                            color: Color(0xFF1E3A8A), size: 22),
+                      ),
+                    ),
+                    const SizedBox(width: 2),
                     InkWell(
                       borderRadius: BorderRadius.circular(12),
                       onTap: () => Navigator.push(context,
@@ -358,7 +362,7 @@ class _DoctorHomeTabState extends State<DoctorHomeTab> {
 
                 const SizedBox(height: 20),
 
-                // ── Overview ─────────────────────────────────────────────
+                // Overview
                 const Text(
                   'Overview',
                   style: TextStyle(
@@ -370,13 +374,8 @@ class _DoctorHomeTabState extends State<DoctorHomeTab> {
                 const SizedBox(height: 12),
 
                 if (loading)
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: CircularProgressIndicator(),
-                    ),
-                  )
-                else
+                  const _SkeletonHomeContent()
+                else ...[
                   Row(
                     children: [
                       Expanded(
@@ -417,38 +416,9 @@ class _DoctorHomeTabState extends State<DoctorHomeTab> {
                     ],
                   ),
 
-                // ── Quick Actions ─────────────────────────────────────────
-                if (!loading) ...[
-                  const SizedBox(height: 20),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _QuickAction(
-                          icon: Icons.person_add_outlined,
-                          label: 'Add Patient',
-                          onTap: _onAddPatient,
-                        ),
-                        const SizedBox(width: 10),
-                        _QuickAction(
-                          icon: Icons.notifications_active_outlined,
-                          label: 'Send Reminder',
-                          onTap: _onSendReminderGlobal,
-                        ),
-                        const SizedBox(width: 10),
-                        _QuickAction(
-                          icon: Icons.bar_chart_outlined,
-                          label: 'View Reports',
-                          onTap: _onViewReports,
-                        ),
-                      ],
-                    ),
-                  ),
                   const SizedBox(height: 24),
-                ],
 
-                // ── Animated content area ─────────────────────────────────
-                if (!loading)
+                  // Animated content area
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 280),
                     transitionBuilder: (child, animation) => FadeTransition(
@@ -478,7 +448,8 @@ class _DoctorHomeTabState extends State<DoctorHomeTab> {
                             onDeleted: _reloadStats,
                           ),
                   ),
-              ],
+                ],  // else block
+              ],    // Column children
             ),
           );
         },
@@ -487,7 +458,203 @@ class _DoctorHomeTabState extends State<DoctorHomeTab> {
   }
 }
 
-// ─── Interactive overview card ────────────────────────────────────────────────
+// Skeleton loading
+
+class _SkeletonHomeContent extends StatefulWidget {
+  const _SkeletonHomeContent();
+
+  @override
+  State<_SkeletonHomeContent> createState() => _SkeletonHomeContentState();
+}
+
+class _SkeletonHomeContentState extends State<_SkeletonHomeContent>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _opacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 900))
+      ..repeat(reverse: true);
+    _opacity = Tween(begin: 0.35, end: 0.75).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Widget _box({double? width, required double height, double radius = 10}) =>
+      Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: const Color(0xFFE2E8F0),
+          borderRadius: BorderRadius.circular(radius),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _opacity,
+      builder: (_, _) => Opacity(
+        opacity: _opacity.value,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Overview cards
+            Row(
+              children: List.generate(3, (i) => i)
+                  .expand((i) => [
+                        Expanded(
+                          child: Container(
+                            height: 118,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE2E8F0),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _box(width: 36, height: 36, radius: 12),
+                                const SizedBox(height: 10),
+                                _box(width: 42, height: 22, radius: 6),
+                                const SizedBox(height: 6),
+                                _box(width: 56, height: 12, radius: 4),
+                              ],
+                            ),
+                          ),
+                        ),
+                        if (i < 2) const SizedBox(width: 10),
+                      ])
+                  .toList(),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Alerts header
+            Row(
+              children: [
+                _box(width: 20, height: 20, radius: 4),
+                const SizedBox(width: 8),
+                _box(width: 100, height: 14, radius: 6),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Alert cards
+            ...List.generate(3, (_) => _SkeletonAlertCard()),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SkeletonAlertCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: const [
+            BoxShadow(
+              blurRadius: 10,
+              offset: Offset(0, 3),
+              color: Color(0x0F000000),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Left colour strip
+                Container(width: 3, color: const Color(0xFFE2E8F0)),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE2E8F0),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              width: 120,
+                              height: 14,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE2E8F0),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Container(
+                          width: 80,
+                          height: 11,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE2E8F0),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Container(
+                              width: 110,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE2E8F0),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              width: 90,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE2E8F0),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Interactive overview card
 
 class _InteractiveCard extends StatefulWidget {
   final String label;
@@ -582,77 +749,7 @@ class _InteractiveCardState extends State<_InteractiveCard> {
   }
 }
 
-// ─── Quick action button ──────────────────────────────────────────────────────
-
-class _QuickAction extends StatefulWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _QuickAction({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  State<_QuickAction> createState() => _QuickActionState();
-}
-
-class _QuickActionState extends State<_QuickAction> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
-      onTap: widget.onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 120),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        decoration: BoxDecoration(
-          color: _pressed ? const Color(0xFF1E3A8A) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: _pressed
-                ? const Color(0xFF1E3A8A)
-                : const Color(0xFFE2E8F0),
-            width: 0.5,
-          ),
-          boxShadow: const [
-            BoxShadow(
-              blurRadius: 8,
-              offset: Offset(0, 2),
-              color: Color(0x0A000000),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Icon(
-              widget.icon,
-              color: _pressed ? Colors.white : const Color(0xFF1E3A8A),
-              size: 22,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              widget.label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: _pressed ? Colors.white : const Color(0xFF334155),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Alerts section (Firestore stream) ───────────────────────────────────────
+// Alerts section (Firestore stream)
 
 class _AlertsSection extends StatelessWidget {
   final Future<void> Function(_Alert) onSendReminder;
@@ -725,7 +822,7 @@ class _AlertsSection extends StatelessWidget {
   }
 }
 
-// ─── Smart alert card ─────────────────────────────────────────────────────────
+// Smart alert card
 
 class _SmartAlertCard extends StatelessWidget {
   final _Alert alert;
@@ -888,7 +985,7 @@ class _AlertActionBtn extends StatelessWidget {
   }
 }
 
-// ─── Filtered patient list ────────────────────────────────────────────────────
+// Filtered patient list
 
 class _FilteredPatientList extends StatelessWidget {
   final List<_PatientStat> stats;
@@ -1079,7 +1176,7 @@ class _PatientFilterCard extends StatelessWidget {
   }
 }
 
-// ─── Placeholders ─────────────────────────────────────────────────────────────
+// Placeholders
 
 class _AiPlaceholder extends StatelessWidget {
   const _AiPlaceholder();
