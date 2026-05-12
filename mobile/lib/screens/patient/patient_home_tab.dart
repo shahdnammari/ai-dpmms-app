@@ -9,6 +9,7 @@ import '../../services/medications_service.dart';
 import '../role_select_screen.dart';
 import 'medication_details_screen.dart';
 import 'medication_form_screen.dart';
+import 'ai_screen.dart';
 
 class PatientHomeTab extends StatefulWidget {
   const PatientHomeTab({super.key});
@@ -294,8 +295,7 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) =>
-                                    const _AiPlaceholderScreen(),
+                                builder: (_) => const AiScreen(),
                               ),
                             );
                           },

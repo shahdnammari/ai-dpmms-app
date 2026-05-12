@@ -9,6 +9,7 @@ import '../../models/medication.dart';
 import '../../services/medications_service.dart';
 import 'medication_form_screen.dart';
 import 'medication_details_screen.dart';
+import 'ai_screen.dart';
 
 class MedicationsListScreen extends StatefulWidget {
   const MedicationsListScreen({super.key});
@@ -239,7 +240,7 @@ class _MedicationsListScreenState extends State<MedicationsListScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const _AiPlaceholderScreen(),
+                          builder: (_) => const AiScreen(),
                         ),
                       );
                     },
@@ -681,24 +682,6 @@ class _MedicationCard extends StatelessWidget {
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-// placeholder
-
-class _AiPlaceholderScreen extends StatelessWidget {
-  const _AiPlaceholderScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('AI')),
-      body: const Center(
-        child: Text('AI Screen Skeleton',
-            style:
-                TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
       ),
     );
   }
