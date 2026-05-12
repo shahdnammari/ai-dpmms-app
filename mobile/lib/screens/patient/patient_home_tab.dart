@@ -680,21 +680,6 @@ class _ActionCircleButton extends StatelessWidget {
 }
 
 // Placeholders
-
-class _AiPlaceholderScreen extends StatelessWidget {
-  const _AiPlaceholderScreen();
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('AI')),
-      body: const Center(
-          child: Text('AI Screen Skeleton',
-              style: TextStyle(
-                  fontSize: 18, fontWeight: FontWeight.w600))),
-    );
-  }
-}
-
 class _SettingsPlaceholderScreen extends StatelessWidget {
   const _SettingsPlaceholderScreen();
   @override
