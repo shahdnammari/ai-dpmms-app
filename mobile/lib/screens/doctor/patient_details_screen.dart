@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../models/medication.dart';
 import '../patient/medication_form_screen.dart';
+import 'send_message_screen.dart';
 
 // Models
 
@@ -200,10 +201,8 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
   Future<void> _editMedication(Medication med) async {
     await Navigator.push(
       context,
-      PageRouteBuilder(
-        opaque: false,
-        barrierDismissible: true,
-        pageBuilder: (_, _, _) => MedicationFormScreen(
+      MaterialPageRoute(
+        builder: (_) => MedicationFormScreen(
           uid: widget.patientUid,
           existing: med,
           effectiveDate: DateTime.now(),
@@ -273,9 +272,17 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
     }
   }
 
-  void _sendMessage() => ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Send Message — coming soon')),
-      );
+  void _sendMessage() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SendMessageScreen(
+          prefilledPatientId:   widget.patientUid,
+          prefilledPatientName: _data?.name ?? widget.patientName,
+        ),
+      ),
+    );
+  }
 
   void _viewReport() => ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('View Report — coming soon')),
