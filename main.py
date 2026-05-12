@@ -14,8 +14,10 @@ from db import Base, engine, SessionLocal
 from schemas import MedicationCreate, MedicationOut
 from schemas import RegisterRequest, LoginRequest, TokenResponse
 from jwt_auth import create_access_token, authenticate_user, get_current_user
+from chat import router as chat_router
 
 app = FastAPI(title="AI-DPMMS Local API")
+app.include_router(chat_router)
 
 app.add_middleware(
     CORSMiddleware,
