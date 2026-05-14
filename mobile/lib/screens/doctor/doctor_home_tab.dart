@@ -221,9 +221,14 @@ class _DoctorHomeTabState extends State<DoctorHomeTab> {
   }
 
   void _viewPatient(_Alert alert) {
-    // TODO: Navigate to PatientDetailsScreen(uid: alert.patientId)
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('View ${alert.patientName} — coming soon')),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PatientDetailsScreen(
+          patientUid: alert.patientId,
+          patientName: alert.patientName,
+        ),
+      ),
     );
   }
 
