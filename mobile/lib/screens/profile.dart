@@ -21,6 +21,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   DateTime? _selectedBirthday;
   String? _selectedGender;
   String _role = 'patient';
+  List<String> _selectedConditions = [];
 
   bool _isLoading = true;
   bool _isSaving = false;
@@ -30,6 +31,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _originalEmail = '';
   String _originalGender = '';
   DateTime? _originalBirthday;
+  List<String> _originalConditions = [];
+
+  static const _commonConditions = [
+    'Diabetes',
+    'Hypertension',
+    'Heart Disease',
+    'Asthma',
+    'Kidney Disease',
+    'Arthritis',
+    'Thyroid Disorder',
+    'High Cholesterol',
+  ];
 
   static const Color _primary = Color(0xFF0D1B4C);
   static const Color _accent = Color(0xFF1E3A8A);
@@ -82,16 +95,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
         } catch (_) {}
       }
 
+      final conditions =
+          List<String>.from((data['conditions'] as List?) ?? []);
+
       _nameController.text = name;
       _emailController.text = email;
       _selectedGender = gender.isEmpty ? null : _normalizeGenderForUi(gender);
       _selectedBirthday = birthday;
       _role = role;
+      _selectedConditions = conditions;
 
       _originalName = name;
       _originalEmail = email;
       _originalGender = _selectedGender ?? '';
       _originalBirthday = birthday;
+      _originalConditions = List<String>.from(conditions);
     } catch (e) {
       _showSnackBar('Failed to load profile: $e', isError: true);
     } finally {
@@ -121,10 +139,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
             (_originalBirthday?.month != _selectedBirthday?.month) ||
             (_originalBirthday?.day != _selectedBirthday?.day);
 
+    final conditionsChanged =
+        _selectedConditions.length != _originalConditions.length ||
+            !_selectedConditions.every(_originalConditions.contains);
+
     return _nameController.text.trim() != _originalName.trim() ||
         _emailController.text.trim() != _originalEmail.trim() ||
         (_selectedGender ?? '') != _originalGender ||
-        birthdayChanged;
+        birthdayChanged ||
+        conditionsChanged;
   }
 
   void _enterEditMode() {
@@ -137,6 +160,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _emailController.text = _originalEmail;
     _selectedGender = _originalGender.isEmpty ? null : _originalGender;
     _selectedBirthday = _originalBirthday;
+    _selectedConditions = List<String>.from(_originalConditions);
   }
 
   Future<String?> _showUnsavedDialog() {
@@ -256,6 +280,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'email': _emailController.text.trim(),
         'gender': _selectedGender,
         'birthday': Timestamp.fromDate(_selectedBirthday!),
+        'conditions': _selectedConditions,
         'role': _role,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
@@ -264,6 +289,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _originalEmail = _emailController.text.trim();
       _originalGender = _selectedGender ?? '';
       _originalBirthday = _selectedBirthday;
+      _originalConditions = List<String>.from(_selectedConditions);
 
       setState(() {
         _isEditMode = false;
@@ -408,28 +434,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildViewMode() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildTapToEditField(
-          label: 'User Name',
-          value: _nameController.text,
-        ),
-        _buildTapToEditField(
-          label: 'Email',
-          value: _emailController.text,
-        ),
-        _buildTapToEditField(
-          label: 'Gender',
-          value: _selectedGender ?? '-',
-        ),
+        _buildTapToEditField(label: 'User Name', value: _nameController.text),
+        _buildTapToEditField(label: 'Email', value: _emailController.text),
+        _buildTapToEditField(label: 'Gender', value: _selectedGender ?? '-'),
         _buildTapToEditField(
           label: 'Birthday',
           value: _formattedBirthday(),
           onTap: _pickBirthday,
         ),
-        _buildTapToEditField(
-          label: 'Role',
-          value: _displayRole(_role),
+        _buildTapToEditField(label: 'Role', value: _displayRole(_role)),
+        const SizedBox(height: 4),
+        const Text(
+          'Medical Conditions',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF64748B),
+          ),
         ),
+        const SizedBox(height: 8),
+        _selectedConditions.isEmpty
+            ? GestureDetector(
+                onTap: _enterEditMode,
+                child: Text(
+                  'Tap to add conditions',
+                  style: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                ),
+              )
+            : Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: _selectedConditions
+                    .map((c) => Chip(
+                          label: Text(c,
+                              style: const TextStyle(fontSize: 13)),
+                          backgroundColor: const Color(0xFFEFF6FF),
+                          side: const BorderSide(color: Color(0xFFBFDBFE)),
+                          labelStyle:
+                              const TextStyle(color: Color(0xFF1E3A8A)),
+                        ))
+                    .toList(),
+              ),
       ],
     );
   }
@@ -513,6 +560,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
             initialValue: _displayRole(_role),
             enabled: false,
             decoration: _inputDecoration('Role'),
+          ),
+          const SizedBox(height: 20),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Medical Conditions',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _commonConditions.map((condition) {
+              final selected = _selectedConditions.contains(condition);
+              return FilterChip(
+                label: Text(condition, style: const TextStyle(fontSize: 13)),
+                selected: selected,
+                onSelected: (val) {
+                  setState(() {
+                    if (val) {
+                      _selectedConditions.add(condition);
+                    } else {
+                      _selectedConditions.remove(condition);
+                    }
+                  });
+                },
+                selectedColor: const Color(0xFFDBEAFE),
+                checkmarkColor: const Color(0xFF1E3A8A),
+                side: BorderSide(
+                  color: selected
+                      ? const Color(0xFF1E3A8A)
+                      : Colors.grey.shade300,
+                ),
+                labelStyle: TextStyle(
+                  color: selected
+                      ? const Color(0xFF1E3A8A)
+                      : Colors.grey.shade700,
+                  fontWeight:
+                      selected ? FontWeight.w700 : FontWeight.w400,
+                ),
+              );
+            }).toList(),
           ),
           const SizedBox(height: 24),
           Row(
