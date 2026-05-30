@@ -60,12 +60,24 @@ class ChatService {
         ? 'Took $taken doses, missed $missed doses in the last 7 days'
         : 'No recent adherence data';
 
+    // Compute age from birthday Timestamp
+    int? age;
+    final birthdayValue = userData['birthday'];
+    if (birthdayValue is Timestamp) {
+      final birthday = birthdayValue.toDate();
+      final today = DateTime.now();
+      age = today.year - birthday.year;
+      if (today.month < birthday.month ||
+          (today.month == birthday.month && today.day < birthday.day)) {
+        age--;
+      }
+    }
+
     final body = <String, dynamic>{
       'question': question,
       'medications': medications,
-      'conditions':
-          List<String>.from((userData['conditions'] as List?) ?? []),
-      'age': userData['age'] as int?,
+      'conditions': List<String>.from((userData['conditions'] as List?) ?? []),
+      'age': age,
       'gender': userData['gender'] as String?,
       'adherence_summary': adherenceSummary,
     };

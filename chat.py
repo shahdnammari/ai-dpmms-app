@@ -1,4 +1,5 @@
 import os
+import json
 import logging
 import traceback
 import httpx
@@ -133,3 +134,95 @@ async def chat(request: ChatRequest):
     except Exception as e:
         logging.error("Groq error:\n%s", traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"AI service error: {str(e)}")
+
+
+# ── AI Alert Analysis ─────────────────────────────────────────────────────────
+
+class AnalyzeRequest(BaseModel):
+    patient_name: str
+    medications: list[str] = []
+    conditions: list[str] = []
+    total_doses: int = 0
+    taken_doses: int = 0
+    missed_doses: int = 0
+    consecutive_missed: int = 0
+
+
+class AnalyzeResponse(BaseModel):
+    should_alert: bool
+    severity: str   # "critical" | "warning" | "info"
+    message: str
+
+
+def _build_analyze_prompt(req: AnalyzeRequest) -> str:
+    adherence_pct = (
+        round((req.taken_doses / req.total_doses) * 100)
+        if req.total_doses > 0 else 0
+    )
+    meds = ", ".join(req.medications) if req.medications else "none"
+    conditions = ", ".join(req.conditions) if req.conditions else "none"
+
+    return f"""You are a medical monitoring AI. Analyze this patient's medication adherence and decide if the doctor should be alerted.
+
+Patient: {req.patient_name}
+Medications: {meds}
+Conditions: {conditions}
+Last 7 days:
+- Total doses: {req.total_doses}
+- Taken: {req.taken_doses}
+- Missed: {req.missed_doses}
+- Adherence: {adherence_pct}%
+- Consecutive missed doses: {req.consecutive_missed}
+
+Rules:
+- Adherence < 50% OR consecutive missed >= 3 OR (insulin/diabetes medication missed 2+ times) → ALERT with severity "critical"
+- Adherence 50–70% OR consecutive missed == 2 → ALERT with severity "warning"
+- Adherence > 70% AND consecutive missed <= 1 → NO alert
+- If no doses recorded yet (total=0) → NO alert
+
+Respond ONLY in this exact JSON format (no extra text):
+{{"should_alert": true/false, "severity": "critical/warning/info", "message": "One clear sentence explaining the concern to the doctor."}}"""
+
+
+@router.post("/analyze", response_model=AnalyzeResponse)
+async def analyze(request: AnalyzeRequest):
+    prompt = _build_analyze_prompt(request)
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            resp = await client.post(
+                _GROQ_URL,
+                headers={
+                    "Authorization": f"Bearer {_GROQ_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": _MODEL,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": 120,
+                    "temperature": 0.2,
+                },
+            )
+
+        if resp.status_code != 200:
+            logging.error("Groq analyze error: %s %s", resp.status_code, resp.text)
+            return AnalyzeResponse(should_alert=False, severity="info", message="")
+
+        content = resp.json()["choices"][0]["message"]["content"].strip()
+
+        # Strip markdown code fences if present
+        if content.startswith("```"):
+            content = content.split("```")[1]
+            if content.startswith("json"):
+                content = content[4:]
+
+        data = json.loads(content)
+        return AnalyzeResponse(
+            should_alert=bool(data.get("should_alert", False)),
+            severity=str(data.get("severity", "info")),
+            message=str(data.get("message", "")),
+        )
+
+    except Exception:
+        logging.error("Analyze error:\n%s", traceback.format_exc())
+        return AnalyzeResponse(should_alert=False, severity="info", message="")

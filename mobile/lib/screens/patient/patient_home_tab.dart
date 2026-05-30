@@ -10,6 +10,7 @@ import '../role_select_screen.dart';
 import 'medication_details_screen.dart';
 import 'medication_form_screen.dart';
 import 'ai_screen.dart';
+import '../../services/alert_service.dart';
 
 class PatientHomeTab extends StatefulWidget {
   const PatientHomeTab({super.key});
@@ -582,6 +583,7 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
                                               doseKey: doseKey,
                                               status: 'skipped',
                                             );
+                                            AlertService.analyzeAndAlert();
                                           }
                                         },
                                       ),
@@ -610,6 +612,7 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
                                               doseKey: doseKey,
                                               status: 'taken',
                                             );
+                                            AlertService.analyzeAndAlert();
                                           }
                                         },
                                       ),
