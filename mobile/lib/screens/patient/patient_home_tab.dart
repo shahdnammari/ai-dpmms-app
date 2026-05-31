@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:ai_dpmms_mobile/services/app_refresh.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../models/medication.dart';
 import '../../services/intake_service.dart';
 import '../../services/medications_service.dart';
@@ -10,6 +11,7 @@ import '../role_select_screen.dart';
 import 'medication_details_screen.dart';
 import 'medication_form_screen.dart';
 import 'ai_screen.dart';
+import 'settings_screen.dart';
 import '../../services/alert_service.dart';
 
 class PatientHomeTab extends StatefulWidget {
@@ -21,17 +23,15 @@ class PatientHomeTab extends StatefulWidget {
 
 class _PatientHomeTabState extends State<PatientHomeTab> {
   final _medicationsService = MedicationsService();
-  final _intakeService      = IntakeService();
+  final _intakeService = IntakeService();
   VoidCallback? _refreshListener;
 
   @override
   void initState() {
     super.initState();
-
     _refreshListener = () {
       if (mounted) setState(() {});
     };
-
     AppRefresh.notifier.addListener(_refreshListener!);
   }
 
@@ -45,18 +45,15 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
 
   DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
-  String _formatToday() =>
-      DateFormat('d MMMM, EEEE').format(DateTime.now());
-
+  String _formatToday() => DateFormat('d MMMM, EEEE').format(DateTime.now());
 
   bool _isMedActiveForDate(Medication med, DateTime day) {
-    final start  = _dateOnly(med.startDate);
+    final start = _dateOnly(med.startDate);
     final target = _dateOnly(day);
     if (target.isBefore(start)) return false;
-    if (med.endDate != null &&
-        target.isAfter(_dateOnly(med.endDate!))) {
-          return false;
-        }
+    if (med.endDate != null && target.isAfter(_dateOnly(med.endDate!))) {
+      return false;
+    }
     return true;
   }
 
@@ -79,63 +76,55 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
 
   List<({Medication med, String time, String doseKey})> _expandDoses(
       List<Medication> meds) {
-    final result =
-        <({Medication med, String time, String doseKey})>[];
+    final result = <({Medication med, String time, String doseKey})>[];
     for (final med in meds) {
       final times = med.times.isNotEmpty ? med.times : ['08:00'];
       for (final t in times) {
         result.add((med: med, time: t, doseKey: '${med.id}_$t'));
       }
     }
-
     result.sort((a, b) => a.time.compareTo(b.time));
     return result;
   }
-
-  // menus
 
   Future<void> _onRefresh() async {
     AppRefresh.trigger();
     await Future.delayed(const Duration(milliseconds: 400));
   }
 
-
-  Future<void> _showMoreMenu() async {
+  Future<void> _showMoreMenu(S s) async {
     final selected = await showMenu<String>(
       context: context,
       position: const RelativeRect.fromLTRB(1000, 145, 16, 0),
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18)),
-      items: const [
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      items: [
         PopupMenuItem(
           value: 'settings',
           child: ListTile(
             dense: true,
-            leading: Icon(Icons.settings_outlined,
-                color: Color(0XFF1E3A8A)),
-            title: Text('Setting',
-                style: TextStyle(color: Color(0XFF1E3A8A))),
+            leading: const Icon(Icons.settings_outlined,
+                color: Color(0xFF1E3A8A)),
+            title: Text(s.menuSetting,
+                style: const TextStyle(color: Color(0xFF1E3A8A))),
           ),
         ),
         PopupMenuItem(
           value: 'help',
           child: ListTile(
             dense: true,
-            leading: Icon(Icons.help_outline,
-                color: Color(0XFF0B1B3A)),
-            title: Text('Help & Support',
-                style: TextStyle(color: Color(0XFF0B1B3A))),
+            leading: const Icon(Icons.help_outline, color: Color(0xFF1E3A8A)),
+            title: Text(s.menuHelp,
+                style: const TextStyle(color: Color(0xFF1E3A8A))),
           ),
         ),
-        PopupMenuDivider(),
+        const PopupMenuDivider(),
         PopupMenuItem(
           value: 'logout',
           child: ListTile(
             dense: true,
-            leading:
-                Icon(Icons.logout, color: Color(0xFFDC2626)),
-            title: Text('Logout',
-                style: TextStyle(color: Color(0xFFDC2626))),
+            leading: const Icon(Icons.logout, color: Color(0xFFDC2626)),
+            title: Text(s.menuLogout,
+                style: const TextStyle(color: Color(0xFFDC2626))),
           ),
         ),
       ],
@@ -145,10 +134,9 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
 
     if (selected == 'settings') {
       Navigator.push(context,
-          MaterialPageRoute(
-              builder: (_) => const _SettingsPlaceholderScreen()));
+          MaterialPageRoute(builder: (_) => const SettingsScreen()));
     } else if (selected == 'help') {
-      _showHelpSupportSheet();
+      _showHelpSupportSheet(s);
     } else if (selected == 'logout') {
       await FirebaseAuth.instance.signOut();
       if (!mounted) return;
@@ -160,40 +148,42 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
     }
   }
 
-  void _showHelpSupportSheet() {
+  void _showHelpSupportSheet(S s) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor:
+          isDark ? const Color(0xFF1E1E2E) : Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(26)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
       ),
       builder: (_) {
         return Padding(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            children: const [
-              SizedBox(
-                  width: 42, child: Divider(thickness: 4)),
-              SizedBox(height: 14),
-              Text('Help & Support',
+            children: [
+              const SizedBox(width: 42, child: Divider(thickness: 4)),
+              const SizedBox(height: 14),
+              Text(s.helpTitle,
                   style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFF0F172A))),
-              SizedBox(height: 8),
+                      color: isDark
+                          ? Colors.white
+                          : const Color(0xFF0F172A))),
+              const SizedBox(height: 8),
               Text(
-                'For help with medications, reminders, or account issues,\nplease contact support or talk to your doctor.',
+                s.helpBody,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                     color: Color(0xFF64748B), height: 1.4),
               ),
-              SizedBox(height: 18),
-              ListTile(
+              const SizedBox(height: 18),
+              const ListTile(
                   leading: Icon(Icons.email_outlined),
                   title: Text('support@ai-dpmms.com')),
-              ListTile(
+              const ListTile(
                   leading: Icon(Icons.phone_outlined),
                   title: Text('+970 000 000 000')),
             ],
@@ -203,8 +193,6 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
     );
   }
 
-  // build
-
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
@@ -212,8 +200,12 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
       return const Center(child: Text('No logged in user.'));
     }
 
+    final s = S.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = Theme.of(context).scaffoldBackgroundColor;
+    final cardBg = Theme.of(context).colorScheme.surface;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
     final today = DateTime.now();
-    const bg    = Color(0xFFF3F6FB);
 
     return Container(
       color: bg,
@@ -224,10 +216,8 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final meds      = medsSnap.data ?? [];
+          final meds = medsSnap.data ?? [];
           final todayMeds = _pickActiveVersionsPerGroup(meds, today);
-
-
           final doses = _expandDoses(todayMeds);
 
           return StreamBuilder<Map<String, dynamic>>(
@@ -236,399 +226,397 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
             builder: (context, intakeSnap) {
               final intakeMap = intakeSnap.data ?? {};
 
-
               int takenCount = 0;
               for (final dose in doses) {
                 final d =
                     intakeMap[dose.doseKey] as Map<String, dynamic>?;
-                if ((d?['status'] as String?) == 'taken') {
-                  takenCount++;
-                }
+                if ((d?['status'] as String?) == 'taken') takenCount++;
               }
 
               final totalCount = doses.length;
               final progress =
                   totalCount == 0 ? 0.0 : takenCount / totalCount;
 
-            return RefreshIndicator(
-              onRefresh: _onRefresh,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header row
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            _formatToday(),
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF1F2937),
-                            ),
-                          ),
-                        ),
-
-                        IconButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => MedicationFormScreen(
-                                  uid: user.uid,
-                                  effectiveDate:
-                                      _dateOnly(today),
-                                  source: MedicationFormSource
-                                      .home,
-                                ),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.add_circle_outline,
-                              color: Color(0xFF1E3A8A), size: 26),
-                          tooltip: 'Add medication',
-                        ),
-                        InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const AiScreen(),
-                              ),
-                            );
-                          },
-                          child: const Padding(
-                            padding: EdgeInsets.all(6),
-                            child: Icon(
-                                Icons.auto_awesome_outlined,
-                                color: Color(0xFF1E3A8A),
-                                size: 22),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: _showMoreMenu,
-                          child: const Padding(
-                            padding: EdgeInsets.all(6),
-                            child: Icon(Icons.more_vert,
-                                color: Color(0xFF334155), size: 22),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    // Daily Progress
-                    const Text('Daily Progress',
-                        style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF334155))),
-                    const SizedBox(height: 8),
-                    Container(
-                      width: double.infinity,
-                      padding:
-                          const EdgeInsets.fromLTRB(12, 12, 12, 10),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(18),
-                        boxShadow: const [
-                          BoxShadow(
-                            blurRadius: 12,
-                            offset: Offset(0, 4),
-                            color: Color(0x11000000),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
+              return RefreshIndicator(
+                onRefresh: _onRefresh,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header row
+                      Row(
                         children: [
-                          ClipRRect(
-                            borderRadius:
-                                BorderRadius.circular(999),
-                            child: LinearProgressIndicator(
-                              minHeight: 16,
-                              value: progress,
-                              backgroundColor:
-                                  const Color(0xFF94A3B8),
-                              valueColor:
-                                  const AlwaysStoppedAnimation(
-                                      Color(0xFF0F2A64)),
+                          Expanded(
+                            child: Text(
+                              _formatToday(),
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                color: onSurface,
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '$takenCount of $totalCount Taken',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF0F172A),
+                          IconButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => MedicationFormScreen(
+                                    uid: user.uid,
+                                    effectiveDate: _dateOnly(today),
+                                    source: MedicationFormSource.home,
+                                  ),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.add_circle_outline,
+                                color: Color(0xFF1E3A8A), size: 26),
+                            tooltip: s.addMedication,
+                          ),
+                          InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const AiScreen()),
+                              );
+                            },
+                            child: const Padding(
+                              padding: EdgeInsets.all(6),
+                              child: Icon(Icons.auto_awesome_outlined,
+                                  color: Color(0xFF1E3A8A), size: 22),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () => _showMoreMenu(s),
+                            child: Padding(
+                              padding: const EdgeInsets.all(6),
+                              child: Icon(Icons.more_vert,
+                                  color: Color(0xFF1E3A8A), size: 22),
                             ),
                           ),
                         ],
                       ),
-                    ),
 
-                    const SizedBox(height: 18),
+                      const SizedBox(height: 14),
 
-                    // Checklist title
-                    const Text("Today's Checklist",
-                        style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF334155))),
-                    const SizedBox(height: 12),
-
-                    // Empty state
-                    if (doses.isEmpty)
+                      // Daily progress
+                      Text(s.dailyProgress,
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: isDark
+                                  ? Colors.white70
+                                  : const Color(0xFF334155))),
+                      const SizedBox(height: 8),
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.all(18),
+                        padding:
+                            const EdgeInsets.fromLTRB(12, 12, 12, 10),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: cardBg,
                           borderRadius: BorderRadius.circular(18),
+                          boxShadow: [
+                            BoxShadow(
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                              color: Colors.black
+                                  .withValues(alpha: isDark ? 0.25 : 0.07),
+                            ),
+                          ],
                         ),
-                        child: const Text(
-                          'No medications scheduled for today.',
-                          style: TextStyle(
-                            color: Color(0xFF64748B),
-                            fontWeight: FontWeight.w600,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(999),
+                              child: LinearProgressIndicator(
+                                minHeight: 16,
+                                value: progress,
+                                backgroundColor: isDark
+                                    ? const Color(0xFF3A3A5C)
+                                    : const Color(0xFF94A3B8),
+                                valueColor:
+                                    const AlwaysStoppedAnimation(
+                                        Color(0xFF0F2A64)),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              s.takenOf(takenCount, totalCount),
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: onSurface,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
 
-                    ...doses.map((dose) {
-                      final med     = dose.med;
-                      final time    = dose.time;
-                      final doseKey = dose.doseKey;
+                      const SizedBox(height: 18),
 
-                      final d = intakeMap[doseKey]
-                          as Map<String, dynamic>?;
-                      final status =
-                          (d?['status'] as String?) ?? 'pending';
+                      // Checklist title
+                      Text(s.todayChecklist,
+                          style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF334155))),
+                      const SizedBox(height: 12),
 
-                      Color mainColor;
-                      String label;
-                      Color skipBgColor, skipIconColor,
-                          skipTextColor;
-                      Color takeBgColor, takeIconColor,
-                          takeTextColor;
-
-                      if (status == 'taken') {
-                        mainColor  = const Color(0xFF16A34A);
-                        label      = 'Taken';
-                        skipBgColor = const Color(0xFFF3F4F6);
-                        skipIconColor = const Color(0xFF9AA0AA);
-                        skipTextColor = const Color(0xFF9AA0AA);
-                        takeBgColor = const Color(0xFFDCFCE7);
-                        takeIconColor = const Color(0xFF16A34A);
-                        takeTextColor = const Color(0xFF16A34A);
-                      } else if (status == 'skipped') {
-                        mainColor  = const Color(0xFFDC2626);
-                        label      = 'Skipped';
-                        skipBgColor = const Color(0xFFFEE2E2);
-                        skipIconColor = const Color(0xFFDC2626);
-                        skipTextColor = const Color(0xFFDC2626);
-                        takeBgColor = const Color(0xFFF3F4F6);
-                        takeIconColor = const Color(0xFF9AA0AA);
-                        takeTextColor = const Color(0xFF9AA0AA);
-                      } else {
-                        mainColor  = const Color(0xFF1E3A8A);
-                        label      = 'Scheduled';
-                        skipBgColor = const Color(0xFFDBEAFE);
-                        skipIconColor = const Color(0xFF1E3A8A);
-                        skipTextColor = const Color(0xFF1E3A8A);
-                        takeBgColor = const Color(0xFFDBEAFE);
-                        takeIconColor = const Color(0xFF1E3A8A);
-                        takeTextColor = const Color(0xFF1E3A8A);
-                      }
-
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: InkWell(
-                          borderRadius:
-                              BorderRadius.circular(20),
-                          onTap: () {
-                            Navigator.of(context).push(
-                              PageRouteBuilder(
-                                opaque: false,
-                                barrierDismissible: true,
-                                pageBuilder: (_, _, _) =>
-                                    MedicationDetailsScreen(
-                                  medication: med,
-                                  uid: user.uid,
-                                  effectiveDate: today,
-                                ),
-                              ),
-                            );
-                          },
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.fromLTRB(
-                                14, 12, 14, 10),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius:
-                                  BorderRadius.circular(20),
-                              boxShadow: const [
-                                BoxShadow(
-                                  blurRadius: 12,
-                                  offset: Offset(0, 4),
-                                  color: Color(0x11000000),
-                                ),
-                              ],
+                      // Empty state
+                      if (doses.isEmpty)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            color: cardBg,
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: Text(
+                            s.noMedsToday,
+                            style: TextStyle(
+                              color: isDark
+                                  ? Colors.white60
+                                  : const Color(0xFF64748B),
+                              fontWeight: FontWeight.w600,
                             ),
-                            child: Column(
-                              children: [
-                                Row(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    Padding(
-                                      padding:
-                                          const EdgeInsets.only(
-                                              top: 2),
-                                      child: Icon(
-                                        Icons.medication_outlined,
-                                        color: mainColor,
-                                        size: 22,
+                          ),
+                        ),
+
+                      ...doses.map((dose) {
+                        final med = dose.med;
+                        final time = dose.time;
+                        final doseKey = dose.doseKey;
+
+                        final d = intakeMap[doseKey]
+                            as Map<String, dynamic>?;
+                        final status =
+                            (d?['status'] as String?) ?? 'pending';
+
+                        Color mainColor;
+                        String label;
+                        Color skipBgColor, skipIconColor, skipTextColor;
+                        Color takeBgColor, takeIconColor, takeTextColor;
+
+                        if (status == 'taken') {
+                          mainColor = const Color(0xFF16A34A);
+                          label = s.statusTaken;
+                          skipBgColor = isDark
+                              ? const Color(0xFF2A2A3C)
+                              : const Color(0xFFF3F4F6);
+                          skipIconColor = const Color(0xFF9AA0AA);
+                          skipTextColor = const Color(0xFF9AA0AA);
+                          takeBgColor = isDark
+                              ? const Color(0xFF14532D).withValues(alpha: 0.5)
+                              : const Color(0xFFDCFCE7);
+                          takeIconColor = const Color(0xFF16A34A);
+                          takeTextColor = const Color(0xFF16A34A);
+                        } else if (status == 'skipped') {
+                          mainColor = const Color(0xFFDC2626);
+                          label = s.statusSkipped;
+                          skipBgColor = isDark
+                              ? const Color(0xFF7F1D1D).withValues(alpha: 0.45)
+                              : const Color(0xFFFEE2E2);
+                          skipIconColor = const Color(0xFFDC2626);
+                          skipTextColor = const Color(0xFFDC2626);
+                          takeBgColor = isDark
+                              ? const Color(0xFF2A2A3C)
+                              : const Color(0xFFF3F4F6);
+                          takeIconColor = const Color(0xFF9AA0AA);
+                          takeTextColor = const Color(0xFF9AA0AA);
+                        } else {
+                          mainColor = const Color(0xFF1E3A8A);
+                          label = s.statusScheduled;
+                          skipBgColor = isDark
+                              ? const Color(0xFF1E3A8A).withValues(alpha: 0.25)
+                              : const Color(0xFFDBEAFE);
+                          skipIconColor = const Color(0xFF1E3A8A);
+                          skipTextColor = const Color(0xFF1E3A8A);
+                          takeBgColor = isDark
+                              ? const Color(0xFF1E3A8A).withValues(alpha: 0.25)
+                              : const Color(0xFFDBEAFE);
+                          takeIconColor = const Color(0xFF1E3A8A);
+                          takeTextColor = const Color(0xFF1E3A8A);
+                        }
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(20),
+                            onTap: () {
+                              Navigator.of(context).push(
+                                PageRouteBuilder(
+                                  opaque: false,
+                                  barrierDismissible: true,
+                                  pageBuilder: (_, _, _) =>
+                                      MedicationDetailsScreen(
+                                    medication: med,
+                                    uid: user.uid,
+                                    effectiveDate: today,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.fromLTRB(
+                                  14, 12, 14, 10),
+                              decoration: BoxDecoration(
+                                color: cardBg,
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 4),
+                                    color: Colors.black.withValues(
+                                        alpha: isDark ? 0.25 : 0.07),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                children: [
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Padding(
+                                        padding:
+                                            const EdgeInsets.only(top: 2),
+                                        child: Icon(
+                                          Icons.medication_outlined,
+                                          color: mainColor,
+                                          size: 22,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 15),
-                                    Expanded(
-                                      child: Column(
+                                      const SizedBox(width: 15),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              med.name,
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w800,
+                                                color: mainColor,
+                                              ),
+                                            ),
+                                            Text(
+                                              med.dosage,
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                                color: Color(0xFF64748B),
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Column(
                                         crossAxisAlignment:
-                                            CrossAxisAlignment
-                                                .start,
+                                            CrossAxisAlignment.end,
                                         children: [
                                           Text(
-                                            med.name,
+                                            time,
                                             style: TextStyle(
                                               fontSize: 16,
-                                              fontWeight:
-                                                  FontWeight.w800,
+                                              fontWeight: FontWeight.w800,
                                               color: mainColor,
                                             ),
                                           ),
-
+                                          const SizedBox(height: 6),
                                           Text(
-                                            med.dosage,
-                                            style: const TextStyle(
-                                              fontSize: 13,
-                                              color:
-                                                  Color(0xFF64748B),
-                                              fontWeight:
-                                                  FontWeight.w500,
+                                            label,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w700,
+                                              color: mainColor,
                                             ),
                                           ),
                                         ],
                                       ),
-                                    ),
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.end,
-                                      children: [
-                                        Text(
-                                          time,
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight:
-                                                FontWeight.w800,
-                                            color: mainColor,
-                                          ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _ActionCircleButton(
+                                          icon: Icons.close,
+                                          label: s.skip,
+                                          bgColor: skipBgColor,
+                                          iconColor: skipIconColor,
+                                          textColor: skipTextColor,
+                                          onTap: () async {
+                                            if (status == 'skipped') {
+                                              await _intakeService
+                                                  .clearDoseStatus(
+                                                uid: user.uid,
+                                                date: today,
+                                                doseKey: doseKey,
+                                              );
+                                            } else {
+                                              await _intakeService
+                                                  .setDoseStatus(
+                                                uid: user.uid,
+                                                date: today,
+                                                doseKey: doseKey,
+                                                status: 'skipped',
+                                              );
+                                              AlertService.analyzeAndAlert();
+                                            }
+                                          },
                                         ),
-                                        const SizedBox(height: 6),
-                                        Text(
-                                          label,
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight:
-                                                FontWeight.w700,
-                                            color: mainColor,
-                                          ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: _ActionCircleButton(
+                                          icon: Icons.check,
+                                          label: s.take,
+                                          bgColor: takeBgColor,
+                                          iconColor: takeIconColor,
+                                          textColor: takeTextColor,
+                                          onTap: () async {
+                                            if (status == 'taken') {
+                                              await _intakeService
+                                                  .clearDoseStatus(
+                                                uid: user.uid,
+                                                date: today,
+                                                doseKey: doseKey,
+                                              );
+                                            } else {
+                                              await _intakeService
+                                                  .setDoseStatus(
+                                                uid: user.uid,
+                                                date: today,
+                                                doseKey: doseKey,
+                                                status: 'taken',
+                                              );
+                                              AlertService.analyzeAndAlert();
+                                            }
+                                          },
                                         ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: _ActionCircleButton(
-                                        icon: Icons.close,
-                                        label: 'Skip',
-                                        bgColor: skipBgColor,
-                                        iconColor: skipIconColor,
-                                        textColor: skipTextColor,
-                                        onTap: () async {
-                                          if (status == 'skipped') {
-                                            await _intakeService
-                                                .clearDoseStatus(
-                                              uid: user.uid,
-                                              date: today,
-                                              doseKey: doseKey,
-                                            );
-                                          } else {
-                                            await _intakeService
-                                                .setDoseStatus(
-                                              uid: user.uid,
-                                              date: today,
-                                              doseKey: doseKey,
-                                              status: 'skipped',
-                                            );
-                                            AlertService.analyzeAndAlert();
-                                          }
-                                        },
                                       ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: _ActionCircleButton(
-                                        icon: Icons.check,
-                                        label: 'Take',
-                                        bgColor: takeBgColor,
-                                        iconColor: takeIconColor,
-                                        textColor: takeTextColor,
-                                        onTap: () async {
-                                          if (status == 'taken') {
-                                            await _intakeService
-                                                .clearDoseStatus(
-                                              uid: user.uid,
-                                              date: today,
-                                              doseKey: doseKey,
-                                            );
-                                          } else {
-                                            await _intakeService
-                                                .setDoseStatus(
-                                              uid: user.uid,
-                                              date: today,
-                                              doseKey: doseKey,
-                                              status: 'taken',
-                                            );
-                                            AlertService.analyzeAndAlert();
-                                          }
-                                        },
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    }),
-                  ],
+                        );
+                      }),
+                    ],
+                  ),
                 ),
-              ),
-            );
+              );
             },
           );
         },
@@ -637,7 +625,7 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
   }
 }
 
-// Action button
+// ── Action button ──────────────────────────────────────────────────────────
 
 class _ActionCircleButton extends StatelessWidget {
   final IconData icon;
@@ -666,33 +654,16 @@ class _ActionCircleButton extends StatelessWidget {
           child: Container(
             width: 42,
             height: 42,
-            decoration: BoxDecoration(
-              color: bgColor,
-              shape: BoxShape.circle,
-            ),
+            decoration:
+                BoxDecoration(color: bgColor, shape: BoxShape.circle),
             child: Icon(icon, color: iconColor, size: 24),
           ),
         ),
         const SizedBox(height: 6),
         Text(label,
-            style: TextStyle(
-                fontWeight: FontWeight.w800, color: textColor)),
+            style:
+                TextStyle(fontWeight: FontWeight.w800, color: textColor)),
       ],
-    );
-  }
-}
-
-// Placeholders
-class _SettingsPlaceholderScreen extends StatelessWidget {
-  const _SettingsPlaceholderScreen();
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
-      body: const Center(
-          child: Text('Settings Screen Skeleton',
-              style: TextStyle(
-                  fontSize: 18, fontWeight: FontWeight.w600))),
     );
   }
 }
