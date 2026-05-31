@@ -3,7 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../l10n/app_strings.dart';
 import 'role_select_screen.dart';
+import 'patient/settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -45,10 +47,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   ];
 
   static const Color _primary = Color(0xFF0D1B4C);
-  static const Color _accent = Color(0xFF1E3A8A);
-  static const Color _red = Color(0xFFDC2626);
-  static const Color _bg = Color(0xFFF4F5FB);
-  static const Color _cardBg = Color(0xFFF7F7FA);
+  static const Color _accent  = Color(0xFF1E3A8A);
+  static const Color _red     = Color(0xFFDC2626);
 
   User? get _currentUser => FirebaseAuth.instance.currentUser;
 
@@ -80,10 +80,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       final data = doc.data() ?? {};
 
-      final name = (data['name'] ?? data['username'] ?? '').toString();
-      final email = (data['email'] ?? user.email ?? '').toString();
+      final name   = (data['name'] ?? data['username'] ?? '').toString();
+      final email  = (data['email'] ?? user.email ?? '').toString();
       final gender = (data['gender'] ?? '').toString();
-      final role = (data['role'] ?? 'patient').toString();
+      final role   = (data['role'] ?? 'patient').toString();
 
       DateTime? birthday;
       final birthdayValue = data['birthday'];
@@ -95,58 +95,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
         } catch (_) {}
       }
 
-      final conditions =
-          List<String>.from((data['conditions'] as List?) ?? []);
+      final conditions = List<String>.from((data['conditions'] as List?) ?? []);
 
-      _nameController.text = name;
+      _nameController.text  = name;
       _emailController.text = email;
-      _selectedGender = gender.isEmpty ? null : _normalizeGenderForUi(gender);
-      _selectedBirthday = birthday;
-      _role = role;
-      _selectedConditions = conditions;
+      _selectedGender       = gender.isEmpty ? null : _normalizeGenderForUi(gender);
+      _selectedBirthday     = birthday;
+      _role                 = role;
+      _selectedConditions   = conditions;
 
-      _originalName = name;
-      _originalEmail = email;
-      _originalGender = _selectedGender ?? '';
-      _originalBirthday = birthday;
+      _originalName       = name;
+      _originalEmail      = email;
+      _originalGender     = _selectedGender ?? '';
+      _originalBirthday   = birthday;
       _originalConditions = List<String>.from(conditions);
     } catch (e) {
       _showSnackBar('Failed to load profile: $e', isError: true);
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   String _normalizeGenderForUi(String value) {
     final v = value.trim().toLowerCase();
     if (v == 'female') return 'Female';
-    if (v == 'male') return 'Male';
+    if (v == 'male')   return 'Male';
     return value;
   }
 
-  String _displayRole(String role) {
+  String _displayRole(String role, S s) {
     final r = role.trim().toLowerCase();
-    if (r == 'patient') return 'Patient';
-    if (r == 'doctor') return 'Doctor';
+    if (r == 'patient') return s.rolePatient;
+    if (r == 'doctor')  return s.roleDoctor;
     return role;
+  }
+
+  String _displayGender(String? gender, S s) {
+    if (gender == null || gender.isEmpty) return '-';
+    if (gender == 'Female') return s.female;
+    if (gender == 'Male')   return s.male;
+    return gender;
   }
 
   bool get _hasChanges {
     final birthdayChanged =
-        (_originalBirthday?.year != _selectedBirthday?.year) ||
-            (_originalBirthday?.month != _selectedBirthday?.month) ||
-            (_originalBirthday?.day != _selectedBirthday?.day);
+        (_originalBirthday?.year  != _selectedBirthday?.year)  ||
+        (_originalBirthday?.month != _selectedBirthday?.month) ||
+        (_originalBirthday?.day   != _selectedBirthday?.day);
 
     final conditionsChanged =
         _selectedConditions.length != _originalConditions.length ||
-            !_selectedConditions.every(_originalConditions.contains);
+        !_selectedConditions.every(_originalConditions.contains);
 
-    return _nameController.text.trim() != _originalName.trim() ||
-        _emailController.text.trim() != _originalEmail.trim() ||
-        (_selectedGender ?? '') != _originalGender ||
-        birthdayChanged ||
+    return _nameController.text.trim() != _originalName.trim()   ||
+        _emailController.text.trim() != _originalEmail.trim()    ||
+        (_selectedGender ?? '') != _originalGender               ||
+        birthdayChanged                                          ||
         conditionsChanged;
   }
 
@@ -156,45 +160,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _restoreOriginalValues() {
-    _nameController.text = _originalName;
+    _nameController.text  = _originalName;
     _emailController.text = _originalEmail;
-    _selectedGender = _originalGender.isEmpty ? null : _originalGender;
-    _selectedBirthday = _originalBirthday;
-    _selectedConditions = List<String>.from(_originalConditions);
+    _selectedGender       = _originalGender.isEmpty ? null : _originalGender;
+    _selectedBirthday     = _originalBirthday;
+    _selectedConditions   = List<String>.from(_originalConditions);
   }
 
   Future<String?> _showUnsavedDialog() {
+    final s = S.of(context);
     return showDialog<String>(
       context: context,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        title: const Text(
-          'Discard changes?',
-          style: TextStyle(fontWeight: FontWeight.w800),
-        ),
-        content: const Text(
-          'Any changes you made will not be saved.',
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(s.discardChanges,
+            style: const TextStyle(fontWeight: FontWeight.w800)),
+        content: Text(s.discardMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, 'cancel'),
-            child: const Text(
-              'Keep editing',
-              style: TextStyle(color: _accent),
-            ),
+            child: Text(s.keepEditing,
+                style: const TextStyle(color: _accent)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: _red,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
+                  borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () => Navigator.pop(context, 'discard'),
-            child: const Text('Discard'),
+            child: Text(s.discard),
           ),
         ],
       ),
@@ -235,7 +231,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _pickBirthday() async {
-    final now = DateTime.now();
+    final now         = DateTime.now();
     final initialDate = _selectedBirthday ?? DateTime(2002, 9, 22);
 
     final picked = await showDatePicker(
@@ -254,15 +250,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _saveProfile() async {
+    final s = S.of(context);
     if (!_formKey.currentState!.validate()) return;
 
     if (_selectedGender == null || _selectedGender!.isEmpty) {
-      _showSnackBar('Please select gender', isError: true);
+      _showSnackBar(s.profileSelectGender, isError: true);
       return;
     }
 
     if (_selectedBirthday == null) {
-      _showSnackBar('Please select birthday', isError: true);
+      _showSnackBar(s.profileSelectBirthday, isError: true);
       return;
     }
 
@@ -276,68 +273,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     try {
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-        'name': _nameController.text.trim(),
-        'email': _emailController.text.trim(),
-        'gender': _selectedGender,
-        'birthday': Timestamp.fromDate(_selectedBirthday!),
+        'name':       _nameController.text.trim(),
+        'email':      _emailController.text.trim(),
+        'gender':     _selectedGender,
+        'birthday':   Timestamp.fromDate(_selectedBirthday!),
         'conditions': _selectedConditions,
-        'role': _role,
-        'updatedAt': FieldValue.serverTimestamp(),
+        'role':       _role,
+        'updatedAt':  FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      _originalName = _nameController.text.trim();
-      _originalEmail = _emailController.text.trim();
-      _originalGender = _selectedGender ?? '';
-      _originalBirthday = _selectedBirthday;
+      _originalName       = _nameController.text.trim();
+      _originalEmail      = _emailController.text.trim();
+      _originalGender     = _selectedGender ?? '';
+      _originalBirthday   = _selectedBirthday;
       _originalConditions = List<String>.from(_selectedConditions);
 
-      setState(() {
-        _isEditMode = false;
-        
-      });
-
-      _showSnackBar('Profile updated successfully');
+      setState(() => _isEditMode = false);
+      _showSnackBar(s.profileUpdated);
     } catch (e) {
       _showSnackBar('Failed to save profile: $e', isError: true);
     } finally {
-      if (mounted) {
-        setState(() => _isSaving = false);
-      }
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
   Future<void> _logout() async {
+    final s = S.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        title: const Text(
-          'Logout?',
-          style: TextStyle(fontWeight: FontWeight.w800),
-        ),
-        content: const Text(
-          'Are you sure you want to logout?',
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(s.logoutConfirmTitle,
+            style: const TextStyle(fontWeight: FontWeight.w800)),
+        content: Text(s.logoutConfirmMsg),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: _accent),
-            ),
+            child: Text(s.cancel, style: const TextStyle(color: _accent)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: _red,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
+                  borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Logout'),
+            child: Text(s.logoutButton),
           ),
         ],
       ),
@@ -347,9 +329,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     try {
       await FirebaseAuth.instance.signOut();
-
       if (!mounted) return;
-
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const RoleSelectScreen()),
@@ -360,8 +340,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  String _formattedBirthday() {
-    if (_selectedBirthday == null) return 'Select birthday';
+  String _formattedBirthday(S s) {
+    if (_selectedBirthday == null) return s.selectBirthday;
     return DateFormat('MMMM d, yyyy').format(_selectedBirthday!);
   }
 
@@ -375,20 +355,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  InputDecoration _inputDecoration(String label) {
+  InputDecoration _inputDecoration(String label, BuildContext ctx) {
+    final surface     = Theme.of(ctx).colorScheme.surface;
+    final isDark      = Theme.of(ctx).brightness == Brightness.dark;
+    final borderColor = isDark ? Colors.grey.shade700 : Colors.grey.shade300;
+
     return InputDecoration(
       labelText: label,
       floatingLabelBehavior: FloatingLabelBehavior.always,
       filled: true,
-      fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      fillColor: surface,
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(22),
-        borderSide: BorderSide(color: Colors.grey.shade300),
+        borderSide: BorderSide(color: borderColor),
       ),
       disabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(22),
-        borderSide: BorderSide(color: Colors.grey.shade300),
+        borderSide: BorderSide(color: borderColor),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(22),
@@ -406,6 +391,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildTapToEditField({
+    required BuildContext ctx,
     required String label,
     required String value,
     VoidCallback? onTap,
@@ -421,10 +407,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: TextFormField(
             initialValue: value,
             enabled: false,
-            decoration: _inputDecoration(label),
-            style: const TextStyle(
+            decoration: _inputDecoration(label, ctx),
+            style: TextStyle(
               fontSize: 14,
-              color: Color(0xFF1E2A4A),
+              color: Theme.of(ctx).colorScheme.onSurface,
             ),
           ),
         ),
@@ -432,26 +418,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildViewMode() {
+  Widget _buildViewMode(BuildContext ctx) {
+    final s      = S.of(ctx);
+    final isDark = Theme.of(ctx).brightness == Brightness.dark;
+
+    final chipBg     = isDark
+        ? const Color(0xFF1E3A8A).withValues(alpha: 0.22)
+        : const Color(0xFFEFF6FF);
+    final chipBorder = isDark
+        ? const Color(0xFF1E3A8A).withValues(alpha: 0.5)
+        : const Color(0xFFBFDBFE);
+    final chipText   = isDark
+        ? const Color(0xFF93C5FD)
+        : const Color(0xFF1E3A8A);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildTapToEditField(label: 'User Name', value: _nameController.text),
-        _buildTapToEditField(label: 'Email', value: _emailController.text),
-        _buildTapToEditField(label: 'Gender', value: _selectedGender ?? '-'),
         _buildTapToEditField(
-          label: 'Birthday',
-          value: _formattedBirthday(),
+            ctx: ctx, label: s.userName, value: _nameController.text),
+        _buildTapToEditField(
+            ctx: ctx, label: s.email, value: _emailController.text),
+        _buildTapToEditField(
+            ctx: ctx, label: s.gender, value: _displayGender(_selectedGender, s)),
+        _buildTapToEditField(
+          ctx: ctx,
+          label: s.birthday,
+          value: _formattedBirthday(s),
           onTap: _pickBirthday,
         ),
-        _buildTapToEditField(label: 'Role', value: _displayRole(_role)),
+        _buildTapToEditField(
+            ctx: ctx, label: s.role, value: _displayRole(_role, s)),
         const SizedBox(height: 4),
-        const Text(
-          'Medical Conditions',
+        Text(
+          s.medicalConditions,
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF64748B),
+            color: Theme.of(ctx).colorScheme.onSurface.withValues(alpha: 0.55),
           ),
         ),
         const SizedBox(height: 8),
@@ -459,8 +463,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ? GestureDetector(
                 onTap: _enterEditMode,
                 child: Text(
-                  'Tap to add conditions',
-                  style: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                  s.tapToAddConditions,
+                  style: TextStyle(
+                    color: Theme.of(ctx)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.35),
+                    fontSize: 14,
+                  ),
                 ),
               )
             : Wrap(
@@ -470,10 +480,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     .map((c) => Chip(
                           label: Text(c,
                               style: const TextStyle(fontSize: 13)),
-                          backgroundColor: const Color(0xFFEFF6FF),
-                          side: const BorderSide(color: Color(0xFFBFDBFE)),
-                          labelStyle:
-                              const TextStyle(color: Color(0xFF1E3A8A)),
+                          backgroundColor: chipBg,
+                          side: BorderSide(color: chipBorder),
+                          labelStyle: TextStyle(color: chipText),
                         ))
                     .toList(),
               ),
@@ -481,21 +490,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildEditMode() {
+  Widget _buildEditMode(BuildContext ctx) {
+    final s      = S.of(ctx);
+    final isDark = Theme.of(ctx).brightness == Brightness.dark;
+
     return Form(
       key: _formKey,
       child: Column(
         children: [
           TextFormField(
             controller: _nameController,
-            decoration: _inputDecoration('User Name'),
+            decoration: _inputDecoration(s.userName, ctx),
+            style: TextStyle(color: Theme.of(ctx).colorScheme.onSurface),
             validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Please enter your name';
-              }
-              if (value.trim().length < 2) {
-                return 'Name is too short';
-              }
+              if (value == null || value.trim().isEmpty) return s.enterName;
+              if (value.trim().length < 2) return s.nameTooShort;
               return null;
             },
           ),
@@ -503,17 +512,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           TextFormField(
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
-            decoration: _inputDecoration('Email'),
+            decoration: _inputDecoration(s.email, ctx),
+            style: TextStyle(color: Theme.of(ctx).colorScheme.onSurface),
             validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Please enter your email';
-              }
-              final emailRegex = RegExp(
-                r'^[\w\-.]+@([\w-]+\.)+[\w-]{2,4}$',
-              );
-              if (!emailRegex.hasMatch(value.trim())) {
-                return 'Enter a valid email';
-              }
+              if (value == null || value.trim().isEmpty) return s.enterEmail;
+              final emailRegex = RegExp(r'^[\w\-.]+@([\w-]+\.)+[\w-]{2,4}$');
+              if (!emailRegex.hasMatch(value.trim())) return s.invalidEmail;
               return null;
             },
           ),
@@ -522,26 +526,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
             initialValue: (_selectedGender == 'Female' || _selectedGender == 'Male')
                 ? _selectedGender
                 : null,
-            decoration: _inputDecoration('Gender'),
-            items: const [
-              DropdownMenuItem(
-                value: 'Female',
-                child: Text('Female'),
-              ),
-              DropdownMenuItem(
-                value: 'Male',
-                child: Text('Male'),
-              ),
+            decoration: _inputDecoration(s.gender, ctx),
+            dropdownColor: Theme.of(ctx).colorScheme.surface,
+            style: TextStyle(
+              color: Theme.of(ctx).colorScheme.onSurface,
+              fontSize: 14,
+            ),
+            items: [
+              DropdownMenuItem(value: 'Female', child: Text(s.female)),
+              DropdownMenuItem(value: 'Male',   child: Text(s.male)),
             ],
-            onChanged: (value) {
-              setState(() {
-                _selectedGender = value;
-              });
-            },
+            onChanged: (value) => setState(() => _selectedGender = value),
             validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please select gender';
-              }
+              if (value == null || value.isEmpty) return s.profileSelectGender;
               return null;
             },
           ),
@@ -550,26 +547,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onTap: _pickBirthday,
             child: AbsorbPointer(
               child: TextFormField(
-                controller: TextEditingController(text: _formattedBirthday()),
-                decoration: _inputDecoration('Birthday'),
+                controller: TextEditingController(
+                    text: _formattedBirthday(s)),
+                decoration: _inputDecoration(s.birthday, ctx),
+                style: TextStyle(
+                  color: Theme.of(ctx).colorScheme.onSurface,
+                ),
               ),
             ),
           ),
           const SizedBox(height: 16),
           TextFormField(
-            initialValue: _displayRole(_role),
+            initialValue: _displayRole(_role, s),
             enabled: false,
-            decoration: _inputDecoration('Role'),
+            decoration: _inputDecoration(s.role, ctx),
+            style: TextStyle(color: Theme.of(ctx).colorScheme.onSurface),
           ),
           const SizedBox(height: 20),
           Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              'Medical Conditions',
+              s.medicalConditions,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey.shade600,
+                color: Theme.of(ctx)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.6),
               ),
             ),
           ),
@@ -580,7 +585,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: _commonConditions.map((condition) {
               final selected = _selectedConditions.contains(condition);
               return FilterChip(
-                label: Text(condition, style: const TextStyle(fontSize: 13)),
+                label: Text(condition,
+                    style: const TextStyle(fontSize: 13)),
                 selected: selected,
                 onSelected: (val) {
                   setState(() {
@@ -591,17 +597,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     }
                   });
                 },
-                selectedColor: const Color(0xFFDBEAFE),
-                checkmarkColor: const Color(0xFF1E3A8A),
+                selectedColor: isDark
+                    ? const Color(0xFF1E3A8A).withValues(alpha: 0.3)
+                    : const Color(0xFFDBEAFE),
+                checkmarkColor: isDark
+                    ? const Color(0xFF93C5FD)
+                    : const Color(0xFF1E3A8A),
                 side: BorderSide(
                   color: selected
                       ? const Color(0xFF1E3A8A)
-                      : Colors.grey.shade300,
+                      : (isDark
+                          ? Colors.grey.shade600
+                          : Colors.grey.shade300),
                 ),
                 labelStyle: TextStyle(
                   color: selected
-                      ? const Color(0xFF1E3A8A)
-                      : Colors.grey.shade700,
+                      ? (isDark
+                          ? const Color(0xFF93C5FD)
+                          : const Color(0xFF1E3A8A))
+                      : (isDark
+                          ? Colors.grey.shade400
+                          : Colors.grey.shade700),
                   fontWeight:
                       selected ? FontWeight.w700 : FontWeight.w400,
                 ),
@@ -617,13 +633,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
+                        borderRadius: BorderRadius.circular(20)),
                     side: const BorderSide(color: _primary),
                   ),
-                  child: const Text(
-                    'Cancel',
-                    style: TextStyle(
+                  child: Text(
+                    s.cancel,
+                    style: const TextStyle(
                       color: _primary,
                       fontWeight: FontWeight.w600,
                     ),
@@ -639,8 +654,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
+                        borderRadius: BorderRadius.circular(20)),
                   ),
                   child: _isSaving
                       ? const SizedBox(
@@ -651,10 +665,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             color: Colors.white,
                           ),
                         )
-                      : const Text(
-                          'Save',
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
+                      : Text(s.save,
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
                 ),
               ),
             ],
@@ -666,6 +678,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = S.of(context);
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
@@ -674,43 +688,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (canPop && context.mounted) Navigator.pop(context);
       },
       child: Scaffold(
-        backgroundColor: _bg,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
-          backgroundColor: _bg,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           elevation: 0,
           centerTitle: true,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios, color: Colors.black87),
+            icon: Icon(Icons.arrow_back_ios,
+                color: Theme.of(context).colorScheme.onSurface),
             onPressed: () async {
               final canPop = await _handleBack();
               if (canPop && context.mounted) Navigator.pop(context);
             },
           ),
-          title: const Text(
-            'Profile',
+          title: Text(
+            s.profileTitle,
             style: TextStyle(
-              color: Colors.black87,
+              color: Theme.of(context).colorScheme.onSurface,
               fontWeight: FontWeight.w700,
             ),
           ),
           actions: [
-            if (!_isLoading && !_isEditMode)
+            if (!_isLoading && !_isEditMode) ...[
+              IconButton(
+                icon: const Icon(Icons.settings_outlined, color: _primary),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                ),
+              ),
               IconButton(
                 icon: const Icon(Icons.edit_outlined, color: _primary),
                 onPressed: _enterEditMode,
               ),
+            ],
           ],
         ),
         body: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : _currentUser == null
-                ? const Center(child: Text('No user is logged in'))
+                ? Center(child: Text(s.notSignedIn))
                 : SafeArea(
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 10,
-                      ),
+                          horizontal: 24, vertical: 10),
                       child: Column(
                         children: [
                           Container(
@@ -727,21 +748,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                               ],
                             ),
-                            child: const Icon(
-                              Icons.person,
-                              size: 58,
-                              color: Colors.white,
-                            ),
+                            child: const Icon(Icons.person,
+                                size: 58, color: Colors.white),
                           ),
                           const SizedBox(height: 24),
                           Container(
                             width: double.infinity,
-                            constraints: const BoxConstraints(
-                              minHeight: 400,
-                            ),
+                            constraints: const BoxConstraints(minHeight: 400),
                             padding: const EdgeInsets.all(22),
                             decoration: BoxDecoration(
-                              color: _cardBg,
+                              color: Theme.of(context).colorScheme.surface,
                               borderRadius: BorderRadius.circular(28),
                               boxShadow: const [
                                 BoxShadow(
@@ -753,21 +769,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             child: Column(
                               children: [
-                                _isEditMode ? _buildEditMode() : _buildViewMode(),
+                                _isEditMode
+                                    ? _buildEditMode(context)
+                                    : _buildViewMode(context),
                               ],
                             ),
                           ),
                           const SizedBox(height: 26),
                           TextButton.icon(
                             onPressed: _logout,
-                            icon: const Icon(
-                              Icons.logout,
-                              color: Colors.red,
-                              size: 20,
-                            ),
-                            label: const Text(
-                              'Logout',
-                              style: TextStyle(
+                            icon: const Icon(Icons.logout,
+                                color: Colors.red, size: 20),
+                            label: Text(
+                              s.logoutButton,
+                              style: const TextStyle(
                                 color: Colors.red,
                                 fontWeight: FontWeight.w600,
                               ),
