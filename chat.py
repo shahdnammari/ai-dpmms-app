@@ -1,3 +1,4 @@
+import asyncio
 import os
 import json
 import logging
@@ -133,6 +134,101 @@ async def chat(request: ChatRequest):
         raise
     except Exception as e:
         logging.error("Groq error:\n%s", traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"AI service error: {str(e)}")
+
+
+# ── Doctor Chat ───────────────────────────────────────────────────────────────
+
+class PatientSummary(BaseModel):
+    name: str
+    conditions: list[str] = []
+    medications: list[str] = []
+
+
+class DoctorChatRequest(BaseModel):
+    question: str
+    role: str = "doctor"
+    total_patients: int = 0
+    patients: list[PatientSummary] = []
+
+
+def _build_doctor_prompt(req: DoctorChatRequest, drug_infos: list[dict]) -> str:
+    patient_lines = "\n".join(
+        f"  - {p.name}: conditions — {', '.join(p.conditions) if p.conditions else 'none'}"
+        f" | medications — {', '.join(p.medications) if p.medications else 'none'}"
+        for p in req.patients
+    ) or "  No patients on record."
+
+    drug_info_text = "\n".join(
+        f"- {d['name']}: {d['warnings']}"
+        for d in drug_infos
+    ) or "No drug information available."
+
+    return f"""You are an AI clinical assistant helping a doctor manage their patients' medication adherence and health outcomes.
+
+Doctor's Patient Panel ({req.total_patients} patients):
+{patient_lines}
+
+Drug Information (from FDA):
+{drug_info_text}
+
+Doctor's Question:
+"{req.question}"
+
+Instructions:
+- Use clear, professional clinical language appropriate for a doctor
+- You may discuss adherence patterns, medication interactions, and clinical insights
+- Reference specific patients by name when relevant to the question
+- Use the FDA drug information above to flag any relevant warnings or interactions
+- Do NOT make final diagnoses — offer observations and suggest the doctor use clinical judgment
+- Keep your answer focused and concise (3–5 sentences)
+- If the question involves a specific clinical risk, clearly flag it
+"""
+
+
+@router.post("/doctor-chat")
+async def doctor_chat(request: DoctorChatRequest):
+    if not request.question.strip():
+        raise HTTPException(status_code=400, detail="Question cannot be empty")
+
+    # Collect unique medication names across all patients, then fetch FDA info in parallel
+    unique_meds = list({
+        med
+        for p in request.patients
+        for med in p.medications
+        if med.strip()
+    })
+    drug_infos = await asyncio.gather(*[_fetch_drug_info(m) for m in unique_meds])
+
+    prompt = _build_doctor_prompt(request, list(drug_infos))
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                _GROQ_URL,
+                headers={
+                    "Authorization": f"Bearer {_GROQ_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": _MODEL,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": 400,
+                    "temperature": 0.5,
+                },
+            )
+
+        if resp.status_code == 200:
+            answer = resp.json()["choices"][0]["message"]["content"].strip()
+            return {"answer": answer}
+
+        logging.error("Groq doctor-chat error: %s %s", resp.status_code, resp.text)
+        raise HTTPException(status_code=500, detail=f"AI error: {resp.text}")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error("Doctor-chat error:\n%s", traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"AI service error: {str(e)}")
 
 

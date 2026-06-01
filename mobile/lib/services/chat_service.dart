@@ -96,4 +96,65 @@ class ChatService {
     final errorBody = jsonDecode(response.body);
     throw Exception(errorBody['detail'] ?? 'Unknown error');
   }
+
+  static Future<String> askAsDoctor(String question) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) throw Exception('Not authenticated');
+
+    final firestore = FirebaseFirestore.instance;
+
+    // Fetch all patients (basic info only to keep the request lightweight)
+    final results = await Future.wait([
+      firestore.collection('users').where('role', isEqualTo: 'patient').get(),
+      firestore.collection('users').where('role', isEqualTo: 'Patient').get(),
+    ]);
+
+    final seen = <String>{};
+    final patientDocs = [...results[0].docs, ...results[1].docs]
+        .where((d) => seen.add(d.id))
+        .toList();
+
+    // Collect patient names, conditions, and medications (parallel fetches)
+    final patientSummaries = await Future.wait(patientDocs.map((d) async {
+      final data = d.data();
+      final name = (data['name'] as String?)?.trim().isNotEmpty == true
+          ? data['name'] as String
+          : (data['username'] as String?) ?? 'Unknown';
+      final conditions =
+          List<String>.from((data['conditions'] as List?) ?? []);
+
+      final medsSnap = await firestore
+          .collection('users')
+          .doc(d.id)
+          .collection('medications')
+          .get();
+      final medications = medsSnap.docs
+          .map((m) => (m.data()['name'] as String?) ?? '')
+          .where((n) => n.isNotEmpty)
+          .toList();
+
+      return {'name': name, 'conditions': conditions, 'medications': medications};
+    }));
+
+    final body = <String, dynamic>{
+      'question': question,
+      'role': 'doctor',
+      'total_patients': patientDocs.length,
+      'patients': patientSummaries,
+    };
+
+    final response = await http.post(
+      Uri.parse('$_baseUrl/doctor-chat'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(body),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return data['answer'] as String;
+    }
+
+    final errorBody = jsonDecode(response.body);
+    throw Exception(errorBody['detail'] ?? 'Unknown error');
+  }
 }
