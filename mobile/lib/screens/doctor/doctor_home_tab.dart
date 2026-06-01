@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../role_select_screen.dart';
 import 'patient_details_screen.dart';
+import 'doctor_ai_screen.dart';
 
 // Severity
 
@@ -345,7 +346,7 @@ class _DoctorHomeTabState extends State<DoctorHomeTab> {
                       borderRadius: BorderRadius.circular(12),
                       onTap: () => Navigator.push(context,
                           MaterialPageRoute(
-                              builder: (_) => const _AiPlaceholder())),
+                              builder: (_) => const DoctorAiScreen())),
                       child: const Padding(
                         padding: EdgeInsets.all(6),
                         child: Icon(Icons.auto_awesome_outlined,
@@ -1182,16 +1183,6 @@ class _PatientFilterCard extends StatelessWidget {
 }
 
 // Placeholders
-
-class _AiPlaceholder extends StatelessWidget {
-  const _AiPlaceholder();
-  @override
-  Widget build(BuildContext context) => Scaffold(
-      appBar: AppBar(title: const Text('AI Assistant')),
-      body: const Center(
-          child: Text('AI Screen — coming soon',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600))));
-}
 
 class _SettingsPlaceholder extends StatelessWidget {
   const _SettingsPlaceholder();
