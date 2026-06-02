@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../services/app_refresh.dart';
 import '../patient/patient_home_tab.dart';
 import '../patient/medications_list_screen.dart';
@@ -19,18 +20,11 @@ class PatientShell extends StatefulWidget {
 class _PatientShellState extends State<PatientShell> {
   int _index = 0;
 
-  final List<String> _titles = const [
-    'Home',
-    'Medications',
-    'Notifications',
-    'Reports',
-  ];
-
-  String _greeting() {
+  String _greeting(S s) {
     final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good morning';
-    if (hour < 18) return 'Good afternoon';
-    return 'Good evening';
+    if (hour < 12) return s.goodMorning;
+    if (hour < 18) return s.goodAfternoon;
+    return s.goodEvening;
   }
 
   void _onTap(int i) {
@@ -66,31 +60,37 @@ class _PatientShellState extends State<PatientShell> {
 
   @override
   Widget build(BuildContext context) {
-    const bg = Color(0xFFF3F6FB);
+    final s = S.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = Theme.of(context).scaffoldBackgroundColor;
+    final navBg = Theme.of(context).colorScheme.surface;
+    final titles = [s.home, s.medications, s.notifications, s.reports];
 
     return Scaffold(
       backgroundColor: bg,
-
       body: SafeArea(
         child: Column(
           children: [
-            // Shell Header
+            // Shell header
             StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
               stream: _userStream(),
               builder: (context, snapshot) {
                 final data = snapshot.data?.data();
-
                 final username =
                     (data?['name'] as String?)?.trim().isNotEmpty == true
                         ? data!['name'] as String
-                        : ((data?['username'] as String?)?.trim().isNotEmpty == true
+                        : ((data?['username'] as String?)
+                                    ?.trim()
+                                    .isNotEmpty ==
+                                true
                             ? data!['username'] as String
                             : (FirebaseAuth.instance.currentUser?.displayName
-                                        ?.trim()
-                                        .isNotEmpty ==
-                                    true
-                                ? FirebaseAuth.instance.currentUser!.displayName!
-                                : 'Patient'));
+                                            ?.trim()
+                                            .isNotEmpty ==
+                                        true
+                                    ? FirebaseAuth
+                                        .instance.currentUser!.displayName!
+                                    : 'Patient'));
 
                 return Container(
                   width: double.infinity,
@@ -104,7 +104,7 @@ class _PatientShellState extends State<PatientShell> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '${_greeting()}, $username',
+                              '${_greeting(s)}, $username',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 20,
@@ -113,7 +113,7 @@ class _PatientShellState extends State<PatientShell> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              _titles[_index],
+                              titles[_index],
                               style: const TextStyle(
                                 color: Colors.white70,
                                 fontSize: 14,
@@ -139,7 +139,8 @@ class _PatientShellState extends State<PatientShell> {
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: Colors.white.withValues(alpha: .12),
-                            border: Border.all(color: Colors.white24, width: 1),
+                            border:
+                                Border.all(color: Colors.white24, width: 1),
                           ),
                           child: const Icon(
                             Icons.person_outline,
@@ -158,26 +159,25 @@ class _PatientShellState extends State<PatientShell> {
           ],
         ),
       ),
-
-      // Bottom nav
       bottomNavigationBar: SafeArea(
         top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: navBg,
               borderRadius: BorderRadius.circular(28),
-              boxShadow: const [
+              boxShadow: [
                 BoxShadow(
                   blurRadius: 18,
-                  offset: Offset(0, 6),
-                  color: Color(0x14000000),
+                  offset: const Offset(0, 6),
+                  color: isDark
+                      ? Colors.black.withValues(alpha: 0.35)
+                      : const Color(0x14000000),
                 ),
               ],
             ),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
@@ -214,8 +214,6 @@ class _PatientShellState extends State<PatientShell> {
   }
 }
 
-// Nav item
-
 class _NavItem extends StatelessWidget {
   final IconData icon;
   final IconData selectedIcon;
@@ -231,8 +229,13 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const activeColor   = Color(0xFF1E3A8A);
-    const inactiveColor = Color(0xFF64748B);
+    const activeColor = Color(0xFF1E3A8A);
+    final inactiveColor = Theme.of(context).brightness == Brightness.dark
+        ? Colors.grey.shade400
+        : const Color(0xFF64748B);
+    final selectedBg = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF1E3A8A).withValues(alpha: 0.28)
+        : const Color(0xFFE8EEF9);
 
     return InkWell(
       borderRadius: BorderRadius.circular(22),
@@ -240,12 +243,9 @@ class _NavItem extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
-        padding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: selected
-              ? const Color(0xFFE8EEF9)
-              : Colors.transparent,
+          color: selected ? selectedBg : Colors.transparent,
           borderRadius: BorderRadius.circular(22),
         ),
         child: Icon(

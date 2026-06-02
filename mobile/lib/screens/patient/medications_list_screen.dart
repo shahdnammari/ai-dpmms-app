@@ -5,6 +5,7 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 import 'package:ai_dpmms_mobile/services/app_refresh.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../models/medication.dart';
 import '../../services/medications_service.dart';
 import 'medication_form_screen.dart';
@@ -23,33 +24,27 @@ class _MedicationsListScreenState extends State<MedicationsListScreen> {
   final _searchCtrl = TextEditingController();
   VoidCallback? _refreshListener;
 
+  DateTime _focusedDay  = DateTime.now();
+  DateTime _selectedDay = DateTime.now();
+  String   _query       = '';
+
   @override
   void initState() {
     super.initState();
-
     _refreshListener = () {
       if (mounted) setState(() {});
     };
-
     AppRefresh.notifier.addListener(_refreshListener!);
   }
 
   @override
   void dispose() {
     _searchCtrl.dispose();
-
     if (_refreshListener != null) {
       AppRefresh.notifier.removeListener(_refreshListener!);
     }
-
     super.dispose();
   }
-
-  DateTime _focusedDay  = DateTime.now();
-  DateTime _selectedDay = DateTime.now();
-  String   _query       = '';
-
-  // helpers
 
   DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
@@ -72,8 +67,7 @@ class _MedicationsListScreenState extends State<MedicationsListScreen> {
     return true;
   }
 
-  List<Medication> _pickActiveVersionsPerGroup(
-      List<Medication> meds, DateTime day) {
+  List<Medication> _pickActiveVersionsPerGroup(List<Medication> meds, DateTime day) {
     final activeToday = meds.where((m) => _isMedActiveForDate(m, day)).toList();
     final Map<String, Medication> latestByGroup = {};
     for (final med in activeToday) {
@@ -91,41 +85,34 @@ class _MedicationsListScreenState extends State<MedicationsListScreen> {
   String _formatSelectedDay(DateTime day) =>
       DateFormat('EEE, d MMM yyyy').format(day);
 
-
   Future<void> _onRefresh() async {
     AppRefresh.trigger();
     await Future.delayed(const Duration(milliseconds: 400));
   }
 
-  //delete
-
-  Future<void> _confirmDelete({
-    required String uid,
-    required Medication med,
-  }) async {
+  Future<void> _confirmDelete({required String uid, required Medication med}) async {
+    final s  = S.of(context);
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Delete medication?',
-            style: TextStyle(fontWeight: FontWeight.w800)),
-        content: Text('Are you sure you want to delete "${med.name}"?'),
+        title: Text(s.deleteMedTitle,
+            style: const TextStyle(fontWeight: FontWeight.w800)),
+        content: Text(s.deleteConfirm(med.name)),
         actions: [
           TextButton(
-            style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF0B1738)),
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFF0B1738)),
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(s.cancel),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFDC2626),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
+            child: Text(s.delete),
           ),
         ],
       ),
@@ -133,19 +120,15 @@ class _MedicationsListScreenState extends State<MedicationsListScreen> {
     if (ok != true) return;
 
     await _service.deleteMedicationForFuture(
-      uid: uid,
-      med: med,
-      effectiveDate: _selectedDay,
+      uid: uid, med: med, effectiveDate: _selectedDay,
     );
     AppRefresh.trigger();
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${med.name} deleted')),
+      SnackBar(content: Text(S.of(context).medDeleted(med.name))),
     );
   }
-
-  // navigation
 
   void _goAdd(String uid) {
     Navigator.push(
@@ -158,7 +141,6 @@ class _MedicationsListScreenState extends State<MedicationsListScreen> {
         ),
       ),
     );
-
     AppRefresh.trigger();
   }
 
@@ -174,11 +156,8 @@ class _MedicationsListScreenState extends State<MedicationsListScreen> {
         ),
       ),
     );
-
     AppRefresh.trigger();
   }
-
-  // build
 
   @override
   Widget build(BuildContext context) {
@@ -187,14 +166,16 @@ class _MedicationsListScreenState extends State<MedicationsListScreen> {
       return const Center(child: Text('No logged in user.'));
     }
 
-    const bg = Color(0xFFF3F6FB);
-
-    final bool isReadOnly = _isSelectedDayPast;
+    final s        = S.of(context);
+    final isDark   = Theme.of(context).brightness == Brightness.dark;
+    final bg       = Theme.of(context).scaffoldBackgroundColor;
+    final surface  = Theme.of(context).colorScheme.surface;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final isReadOnly = _isSelectedDayPast;
 
     return Scaffold(
       backgroundColor: bg,
       floatingActionButton: FloatingActionButton(
-        
         backgroundColor:
             isReadOnly ? const Color(0xFFB0BEC5) : const Color(0xFF1E3A8A),
         foregroundColor: Colors.white,
@@ -215,20 +196,28 @@ class _MedicationsListScreenState extends State<MedicationsListScreen> {
                     child: Container(
                       height: 48,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: surface,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        border: Border.all(
+                          color: isDark
+                              ? const Color(0xFF3A3A5C)
+                              : const Color(0xFFE2E8F0),
+                        ),
                       ),
                       child: TextField(
                         controller: _searchCtrl,
                         onChanged: (v) => setState(() => _query = v),
-                        decoration: const InputDecoration(
-                          hintText: 'Search medication...',
-                          prefixIcon:
-                              Icon(Icons.search, color: Color(0xFF1E3A8A)),
+                        style: TextStyle(color: onSurface),
+                        decoration: InputDecoration(
+                          hintText: s.searchHint,
+                          hintStyle: TextStyle(
+                            color: onSurface.withValues(alpha: 0.4),
+                          ),
+                          prefixIcon: const Icon(Icons.search,
+                              color: Color(0xFF1E3A8A)),
                           border: InputBorder.none,
                           contentPadding:
-                              EdgeInsets.symmetric(vertical: 12),
+                              const EdgeInsets.symmetric(vertical: 12),
                         ),
                       ),
                     ),
@@ -239,9 +228,7 @@ class _MedicationsListScreenState extends State<MedicationsListScreen> {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => const AiScreen(),
-                        ),
+                        MaterialPageRoute(builder: (_) => const AiScreen()),
                       );
                     },
                     child: const Padding(
@@ -263,9 +250,8 @@ class _MedicationsListScreenState extends State<MedicationsListScreen> {
                     return const Center(child: CircularProgressIndicator());
                   }
 
-                  final allMeds   = snap.data ?? [];
-                  final medsForDay = _pickActiveVersionsPerGroup(
-                      allMeds, _selectedDay);
+                  final allMeds    = snap.data ?? [];
+                  final medsForDay = _pickActiveVersionsPerGroup(allMeds, _selectedDay);
 
                   final filtered = medsForDay.where((m) {
                     final q = _query.trim().toLowerCase();
@@ -274,170 +260,173 @@ class _MedicationsListScreenState extends State<MedicationsListScreen> {
                         m.dosage.toLowerCase().contains(q);
                   }).toList();
 
-                return RefreshIndicator(
-                  onRefresh: _onRefresh,
-                  child: SingleChildScrollView(
-                    padding:
-                        const EdgeInsets.fromLTRB(16, 12, 16, 100),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Week calendar
-                        Container(
-                          padding:
-                              const EdgeInsets.fromLTRB(10, 8, 10, 8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(18),
-                            boxShadow: const [
-                              BoxShadow(
-                                blurRadius: 10,
-                                offset: Offset(0, 4),
-                                color: Color(0x11000000),
-                              ),
-                            ],
-                          ),
-                          child: TableCalendar(
-                            firstDay: DateTime.utc(2020, 1, 1),
-                            lastDay: DateTime.utc(2035, 12, 31),
-                            focusedDay: _focusedDay,
-                            selectedDayPredicate: (day) =>
-                                _isSameDayOnly(day, _selectedDay),
-                            calendarFormat: CalendarFormat.week,
-                            availableCalendarFormats: const {
-                              CalendarFormat.week: 'Week',
-                            },
-                            startingDayOfWeek:
-                                StartingDayOfWeek.sunday,
-                            headerStyle: const HeaderStyle(
-                              titleCentered: true,
-                              formatButtonVisible: false,
-                              leftChevronIcon:
-                                  Icon(Icons.chevron_left),
-                              rightChevronIcon:
-                                  Icon(Icons.chevron_right),
-                              titleTextStyle: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF0F172A),
-                              ),
-                            ),
-                            daysOfWeekStyle: const DaysOfWeekStyle(
-                              weekdayStyle: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF334155),
-                              ),
-                              weekendStyle: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF334155),
-                              ),
-                            ),
-                            calendarStyle: CalendarStyle(
-                              outsideDaysVisible: false,
-                              defaultTextStyle: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF0F172A),
-                              ),
-                              weekendTextStyle: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF0F172A),
-                              ),
-                              todayDecoration: BoxDecoration(
-                                color: const Color(0xFFE8EEF9),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                    color: const Color(0xFF1E3A8A)),
-                              ),
-                              selectedDecoration: const BoxDecoration(
-                                color: Color(0xFF0F172A),
-                                shape: BoxShape.circle,
-                              ),
-                              selectedTextStyle: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            onDaySelected: (selectedDay, focusedDay) {
-                              setState(() {
-                                _selectedDay = selectedDay;
-                                _focusedDay  = focusedDay;
-                              });
-                            },
-                            onPageChanged: (focusedDay) {
-                              _focusedDay = focusedDay;
-                            },
-                          ),
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        // Selected day label
-                        //label "View Only"
-                        Row(
-                          children: [
-                            Text(
-                              _formatSelectedDay(_selectedDay),
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF334155),
-                              ),
-                            ),
-                            if (isReadOnly) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF1F5F9),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                      color: const Color(0xFFCBD5E1)),
+                  return RefreshIndicator(
+                    onRefresh: _onRefresh,
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Week calendar
+                          Container(
+                            padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                            decoration: BoxDecoration(
+                              color: surface,
+                              borderRadius: BorderRadius.circular(18),
+                              boxShadow: [
+                                BoxShadow(
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                  color: Colors.black
+                                      .withValues(alpha: isDark ? 0.25 : 0.07),
                                 ),
-                                child: const Text(
-                                  'View Only',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF94A3B8),
+                              ],
+                            ),
+                            child: TableCalendar(
+                              firstDay: DateTime.utc(2020, 1, 1),
+                              lastDay: DateTime.utc(2035, 12, 31),
+                              focusedDay: _focusedDay,
+                              selectedDayPredicate: (day) =>
+                                  _isSameDayOnly(day, _selectedDay),
+                              calendarFormat: CalendarFormat.week,
+                              availableCalendarFormats: const {
+                                CalendarFormat.week: 'Week',
+                              },
+                              startingDayOfWeek: StartingDayOfWeek.sunday,
+                              headerStyle: HeaderStyle(
+                                titleCentered: true,
+                                formatButtonVisible: false,
+                                leftChevronIcon: Icon(Icons.chevron_left,
+                                    color: onSurface),
+                                rightChevronIcon: Icon(Icons.chevron_right,
+                                    color: onSurface),
+                                titleTextStyle: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  color: onSurface,
+                                ),
+                              ),
+                              daysOfWeekStyle: DaysOfWeekStyle(
+                                weekdayStyle: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: onSurface.withValues(alpha: 0.7),
+                                ),
+                                weekendStyle: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: onSurface.withValues(alpha: 0.7),
+                                ),
+                              ),
+                              calendarStyle: CalendarStyle(
+                                outsideDaysVisible: false,
+                                defaultTextStyle: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: onSurface,
+                                ),
+                                weekendTextStyle: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: onSurface,
+                                ),
+                                todayDecoration: BoxDecoration(
+                                  color: isDark
+                                      ? const Color(0xFF1E3A8A).withValues(alpha: 0.3)
+                                      : const Color(0xFFE8EEF9),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                      color: const Color(0xFF1E3A8A)),
+                                ),
+                                selectedDecoration: BoxDecoration(
+                                  color: isDark
+                                      ? const Color(0xFF1E3A8A)
+                                      : const Color(0xFF0F172A),
+                                  shape: BoxShape.circle,
+                                ),
+                                selectedTextStyle: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              onDaySelected: (selectedDay, focusedDay) {
+                                setState(() {
+                                  _selectedDay = selectedDay;
+                                  _focusedDay  = focusedDay;
+                                });
+                              },
+                              onPageChanged: (focusedDay) {
+                                _focusedDay = focusedDay;
+                              },
+                            ),
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // Selected day label + View Only badge
+                          Row(
+                            children: [
+                              Text(
+                                _formatSelectedDay(_selectedDay),
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  color: onSurface,
+                                ),
+                              ),
+                              if (isReadOnly) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: isDark
+                                        ? const Color(0xFF3A3A5C)
+                                        : const Color(0xFFF1F5F9),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: isDark
+                                          ? const Color(0xFF4A4A6C)
+                                          : const Color(0xFFCBD5E1),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    s.viewOnly,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF94A3B8),
+                                    ),
                                   ),
                                 ),
-                              ),
+                              ],
                             ],
-                          ],
-                        ),
-
-                        const SizedBox(height: 14),
-
-                        // Empty state
-                        if (filtered.isEmpty)
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(18),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            child: const Text(
-                              'No medications for this day.',
-                              style: TextStyle(
-                                color: Color(0xFF64748B),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
                           ),
 
-                        // Medication cards
-                        ...filtered.map((med) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
+                          const SizedBox(height: 14),
 
-                            child: isReadOnly
-                                ? InkWell(
-                                    borderRadius:
-                                        BorderRadius.circular(18),
-                                    onTap: () {
-                                      Navigator.of(context).push(
+                          // Empty state
+                          if (filtered.isEmpty)
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(18),
+                              decoration: BoxDecoration(
+                                color: surface,
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                              child: Text(
+                                s.noMedsDay,
+                                style: TextStyle(
+                                  color: onSurface.withValues(alpha: 0.5),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+
+                          // Medication cards
+                          ...filtered.map((med) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: isReadOnly
+                                  ? InkWell(
+                                      borderRadius: BorderRadius.circular(18),
+                                      onTap: () => Navigator.of(context).push(
                                         PageRouteBuilder(
                                           opaque: false,
                                           pageBuilder: (_, _, _) =>
@@ -447,72 +436,69 @@ class _MedicationsListScreenState extends State<MedicationsListScreen> {
                                             effectiveDate: _selectedDay,
                                           ),
                                         ),
-                                      );
-                                    },
-                                    child: _MedicationCard(
-                                      med: med,
-                                      isReadOnly: true,
-                                      onEdit: () {},
-                                      onDelete: () {},
-                                      onDetails: () {
-                                        Navigator.of(context).push(
-                                          PageRouteBuilder(
-                                            opaque: false,
-                                            pageBuilder: (_, _, _) =>
-                                                MedicationDetailsScreen(
-                                              medication: med,
-                                              uid: user.uid,
-                                              effectiveDate: _selectedDay,
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  )
-                                : Slidable(
-                                    key: ValueKey(
-                                        '${med.id}_${_selectedDay.toIso8601String()}'),
-                                    endActionPane: ActionPane(
-                                      motion: const ScrollMotion(),
-                                      children: [
-                                        SlidableAction(
-                                          onPressed: (_) => _confirmDelete(
-                                              uid: user.uid, med: med),
-                                          backgroundColor:
-                                              const Color(0xFFDC2626),
-                                          foregroundColor: Colors.white,
-                                          borderRadius:
-                                              BorderRadius.circular(16),
-                                          icon: Icons.delete_outline,
-                                          label: 'Delete',
-                                        ),
-                                      ],
-                                    ),
-                                    child: InkWell(
-                                      borderRadius:
-                                          BorderRadius.circular(18),
-                                      onTap: () {
-                                        Navigator.of(context).push(
-                                          PageRouteBuilder(
-                                            opaque: false,
-                                            pageBuilder: (_, _, _) =>
-                                                MedicationDetailsScreen(
-                                              medication: med,
-                                              uid: user.uid,
-                                              effectiveDate: _selectedDay,
-                                            ),
-                                          ),
-                                        );
-                                      },
+                                      ),
                                       child: _MedicationCard(
                                         med: med,
-                                        isReadOnly: false,
-                                        onEdit: () =>
-                                            _goEdit(user.uid, med),
-                                        onDelete: () => _confirmDelete(
-                                            uid: user.uid, med: med),
-                                        onDetails: () {
-                                          Navigator.of(context).push(
+                                        isReadOnly: true,
+                                        s: s,
+                                        onEdit: () {},
+                                        onDelete: () {},
+                                        onDetails: () =>
+                                            Navigator.of(context).push(
+                                          PageRouteBuilder(
+                                            opaque: false,
+                                            pageBuilder: (_, _, _) =>
+                                                MedicationDetailsScreen(
+                                              medication: med,
+                                              uid: user.uid,
+                                              effectiveDate: _selectedDay,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  : Slidable(
+                                      key: ValueKey(
+                                          '${med.id}_${_selectedDay.toIso8601String()}'),
+                                      endActionPane: ActionPane(
+                                        motion: const ScrollMotion(),
+                                        children: [
+                                          SlidableAction(
+                                            onPressed: (_) => _confirmDelete(
+                                                uid: user.uid, med: med),
+                                            backgroundColor:
+                                                const Color(0xFFDC2626),
+                                            foregroundColor: Colors.white,
+                                            borderRadius:
+                                                BorderRadius.circular(16),
+                                            icon: Icons.delete_outline,
+                                            label: s.delete,
+                                          ),
+                                        ],
+                                      ),
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.circular(18),
+                                        onTap: () =>
+                                            Navigator.of(context).push(
+                                          PageRouteBuilder(
+                                            opaque: false,
+                                            pageBuilder: (_, _, _) =>
+                                                MedicationDetailsScreen(
+                                              medication: med,
+                                              uid: user.uid,
+                                              effectiveDate: _selectedDay,
+                                            ),
+                                          ),
+                                        ),
+                                        child: _MedicationCard(
+                                          med: med,
+                                          isReadOnly: false,
+                                          s: s,
+                                          onEdit: () => _goEdit(user.uid, med),
+                                          onDelete: () => _confirmDelete(
+                                              uid: user.uid, med: med),
+                                          onDetails: () =>
+                                              Navigator.of(context).push(
                                             PageRouteBuilder(
                                               opaque: false,
                                               pageBuilder: (_, _, _) =>
@@ -522,17 +508,16 @@ class _MedicationsListScreenState extends State<MedicationsListScreen> {
                                                 effectiveDate: _selectedDay,
                                               ),
                                             ),
-                                          );
-                                        },
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                          );
-                        }),
-                      ],
+                            );
+                          }),
+                        ],
+                      ),
                     ),
-                  ),
-                );
+                  );
                 },
               ),
             ),
@@ -548,6 +533,7 @@ class _MedicationsListScreenState extends State<MedicationsListScreen> {
 class _MedicationCard extends StatelessWidget {
   final Medication med;
   final bool isReadOnly;
+  final S s;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onDetails;
@@ -555,6 +541,7 @@ class _MedicationCard extends StatelessWidget {
   const _MedicationCard({
     required this.med,
     required this.isReadOnly,
+    required this.s,
     required this.onEdit,
     required this.onDelete,
     required this.onDetails,
@@ -562,24 +549,34 @@ class _MedicationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    
-    final timesText = med.times.isNotEmpty
-        ? med.times.join(' · ')
-        : '--:--';
+    final isDark   = Theme.of(context).brightness == Brightness.dark;
+    final surface  = Theme.of(context).colorScheme.surface;
+    final timesText = med.times.isNotEmpty ? med.times.join(' · ') : '--:--';
+
+    final cardColor = isReadOnly
+        ? (isDark ? surface.withValues(alpha: 0.6) : const Color(0xFFF8FAFC))
+        : surface;
+
+    final nameColor = isReadOnly
+        ? const Color(0xFF94A3B8)
+        : const Color(0xFF1E3A8A);
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       decoration: BoxDecoration(
-
-        color: isReadOnly ? const Color(0xFFF8FAFC) : Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: const [
+        border: Border.all(
+          color: isDark
+              ? const Color(0xFF3A3A5C)
+              : const Color(0xFFE2E8F0),
+        ),
+        boxShadow: [
           BoxShadow(
             blurRadius: 10,
-            offset: Offset(0, 4),
-            color: Color(0x0E000000),
+            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.06),
           ),
         ],
       ),
@@ -588,14 +585,10 @@ class _MedicationCard extends StatelessWidget {
         children: [
           Icon(
             Icons.medication_outlined,
-          
-            color: isReadOnly
-                ? const Color(0xFF94A3B8)
-                : const Color(0xFF1E3A8A),
+            color: nameColor,
             size: 22,
           ),
           const SizedBox(width: 12),
-
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -605,10 +598,7 @@ class _MedicationCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
-
-                    color: isReadOnly
-                        ? const Color(0xFF94A3B8)
-                        : const Color(0xFF1E3A8A),
+                    color: nameColor,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -625,10 +615,7 @@ class _MedicationCard extends StatelessWidget {
               ],
             ),
           ),
-
           const SizedBox(width: 8),
-
-          // Popup menu - isReadOnly
           PopupMenuButton<String>(
             offset: const Offset(-10, 40),
             shape: RoundedRectangleBorder(
@@ -645,38 +632,36 @@ class _MedicationCard extends StatelessWidget {
               }
             },
             itemBuilder: (context) => [
-              // Edit و Delete
               if (!isReadOnly)
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'edit',
                   child: ListTile(
                     dense: true,
-                    leading: Icon(Icons.edit_outlined,
+                    leading: const Icon(Icons.edit_outlined,
                         color: Color(0xFF1E3A8A)),
-                    title: Text('Edit',
-                        style: TextStyle(color: Color(0xFF1E3A8A))),
+                    title: Text(s.edit,
+                        style: const TextStyle(color: Color(0xFF1E3A8A))),
                   ),
                 ),
               if (!isReadOnly)
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'delete',
                   child: ListTile(
                     dense: true,
-                    leading: Icon(Icons.delete_outline,
+                    leading: const Icon(Icons.delete_outline,
                         color: Color(0xFFDC2626)),
-                    title: Text('Delete',
-                        style: TextStyle(color: Color(0xFFDC2626))),
+                    title: Text(s.delete,
+                        style: const TextStyle(color: Color(0xFFDC2626))),
                   ),
                 ),
-              // Details
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'details',
                 child: ListTile(
                   dense: true,
-                  leading: Icon(Icons.info_outline,
+                  leading: const Icon(Icons.info_outline,
                       color: Color(0xFF334155)),
-                  title: Text('Details',
-                      style: TextStyle(color: Color(0xFF334155))),
+                  title: Text(s.details,
+                      style: const TextStyle(color: Color(0xFF334155))),
                 ),
               ),
             ],

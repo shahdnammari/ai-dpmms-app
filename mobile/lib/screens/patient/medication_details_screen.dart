@@ -1,6 +1,6 @@
-// medication_details_screen.dart
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../../l10n/app_strings.dart';
 import '../../models/medication.dart';
 import '../../services/intake_service.dart';
 import '../../services/medications_service.dart';
@@ -23,33 +23,29 @@ class MedicationDetailsScreen extends StatefulWidget {
       _MedicationDetailsScreenState();
 }
 
-class _MedicationDetailsScreenState
-    extends State<MedicationDetailsScreen> {
+class _MedicationDetailsScreenState extends State<MedicationDetailsScreen> {
   final _intakeService = IntakeService();
 
   static const Color _dark  = Color(0xFF0B1738);
   static const Color _red   = Color(0xFFDC2626);
   static const Color _green = Color(0xFF16A34A);
 
-  // Delete
-
   Future<void> _confirmDelete() async {
+    final s       = S.of(context);
     final service = MedicationsService();
 
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20)),
-        title: const Text('Delete medication?',
-            style: TextStyle(fontWeight: FontWeight.w800)),
-        content: Text(
-            'Are you sure you want to delete "${widget.medication.name}"?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(s.deleteMedTitle,
+            style: const TextStyle(fontWeight: FontWeight.w800)),
+        content: Text(s.deleteConfirm(widget.medication.name)),
         actions: [
           TextButton(
             style: TextButton.styleFrom(foregroundColor: _dark),
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(s.cancel),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -59,7 +55,7 @@ class _MedicationDetailsScreenState
                   borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
+            child: Text(s.delete),
           ),
         ],
       ),
@@ -77,8 +73,6 @@ class _MedicationDetailsScreenState
     Navigator.pop(context);
   }
 
-  // Edit
-
   void _goEdit() {
     Navigator.push(
       context,
@@ -93,38 +87,32 @@ class _MedicationDetailsScreenState
     );
   }
 
-  // Texts helpers
-
   String get _timeText {
     if (widget.medication.times.isEmpty) return '--:--';
     return widget.medication.times.join(' · ');
   }
 
-  String get _scheduleText {
+  String _scheduleText(S s) {
     final n = widget.medication.times.isNotEmpty
         ? widget.medication.times.length
         : widget.medication.frequencyPerDay;
-    return n <= 1 ? '1 time per day' : '$n times per day';
+    return n <= 1 ? s.timesPerDay1 : s.timesPerDayN(n);
   }
 
-  String get _repeatText {
+  String _repeatText(S s) {
     final days = widget.medication.repeatDays;
-    if (days.length == 7) return 'Every day';
-    if (days.isEmpty)     return 'No repeat days';
+    if (days.length == 7) return s.everyDay;
+    if (days.isEmpty)     return s.noRepeatDays;
 
-
-    const order = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    final sorted = days
-        .where(order.contains)
-        .toList()
+    const order  = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final sorted = days.where(order.contains).toList()
       ..sort((a, b) => order.indexOf(a).compareTo(order.indexOf(b)));
     return sorted.join(', ');
   }
 
-  // Recent activity
-
   Future<List<_ActivityItem>> _loadRecentActivity() async {
     final List<_ActivityItem> items = [];
+    final s = S.of(context);
 
     final times = widget.medication.times.isNotEmpty
         ? widget.medication.times
@@ -132,10 +120,9 @@ class _MedicationDetailsScreenState
 
     for (int i = 1; i <= 4; i++) {
       final day = DateTime.now().subtract(Duration(days: i));
-
       for (final time in times) {
         final doseKey = '${widget.medication.id}_$time';
-        final status = await _intakeService.getDoseStatus(
+        final status  = await _intakeService.getDoseStatus(
           uid: widget.uid,
           date: day,
           doseKey: doseKey,
@@ -143,18 +130,10 @@ class _MedicationDetailsScreenState
 
         if (status == 'taken') {
           items.add(_ActivityItem(
-            date: day,
-            time: time,
-            label: 'Taken',
-            color: _green,
-          ));
+              date: day, time: time, label: s.statusTaken, color: _green));
         } else if (status == 'skipped') {
           items.add(_ActivityItem(
-            date: day,
-            time: time,
-            label: 'Skipped',
-            color: _red,
-          ));
+              date: day, time: time, label: s.statusSkipped, color: _red));
         }
       }
     }
@@ -163,10 +142,9 @@ class _MedicationDetailsScreenState
     return items;
   }
 
-  // build
-
   @override
   Widget build(BuildContext context) {
+    final s   = S.of(context);
     final med = widget.medication;
 
     return Scaffold(
@@ -179,8 +157,7 @@ class _MedicationDetailsScreenState
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
               child: Container(
-                color: Colors.black.withValues(alpha: 0.25),
-              ),
+                  color: Colors.black.withValues(alpha: 0.25)),
             ),
           ),
 
@@ -188,8 +165,8 @@ class _MedicationDetailsScreenState
           SafeArea(
             child: Center(
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 18, vertical: 24),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
                 child: GestureDetector(
                   onTap: () {},
                   child: Container(
@@ -211,7 +188,6 @@ class _MedicationDetailsScreenState
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-
                           // Header
                           Row(
                             children: [
@@ -223,8 +199,8 @@ class _MedicationDetailsScreenState
                               const Icon(Icons.info_outline,
                                   color: Colors.white),
                               const SizedBox(width: 8),
-                              const Text('Details',
-                                  style: TextStyle(
+                              Text(s.details,
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w800,
                                     fontSize: 18,
@@ -245,124 +221,99 @@ class _MedicationDetailsScreenState
 
                           const SizedBox(height: 14),
 
-                          // Main info card
-                          _card(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _row(Icons.medication_outlined, med.name),
-                                const SizedBox(height: 10),
-                                _row(Icons.science_outlined, med.dosage),
-                              ],
-                            ),
-                          ),
+                          // Main info
+                          _card(child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _row(Icons.medication_outlined, med.name),
+                              const SizedBox(height: 10),
+                              _row(Icons.science_outlined, med.dosage),
+                            ],
+                          )),
 
                           const SizedBox(height: 18),
 
-                          // Schedule
-                          const _SectionTitle('Schedule'),
+                          _SectionTitle(s.scheduleLabel),
                           const SizedBox(height: 8),
-                          _card(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-
-                                Text(
-                                  _timeText,
+                          _card(child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(_timeText,
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w800,
                                     color: Color(0xFF0F172A),
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  _scheduleText,
+                                  )),
+                              const SizedBox(height: 6),
+                              Text(_scheduleText(s),
                                   style: const TextStyle(
                                     color: Color(0xFF334155),
                                     fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                                  )),
+                            ],
+                          )),
 
                           const SizedBox(height: 18),
 
-                          // Repeat days
-                          const _SectionTitle('Repeat'),
+                          _SectionTitle(s.repeatLabel),
                           const SizedBox(height: 8),
-                          _card(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _repeatText,
+                          _card(child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(_repeatText(s),
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w700,
                                     color: Color(0xFF334155),
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                _RepeatDaysRow(
-                                    repeatDays: med.repeatDays),
-                              ],
-                            ),
-                          ),
+                                  )),
+                              const SizedBox(height: 10),
+                              _RepeatDaysRow(repeatDays: med.repeatDays),
+                            ],
+                          )),
 
                           const SizedBox(height: 18),
 
-                          // Reminder
-                          _card(
-                            child: Row(
-                              children: [
-                                const Icon(
-                                    Icons.notifications_outlined),
-                                const SizedBox(width: 10),
-                                const Text('Reminder',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.w700)),
-                                const Spacer(),
-                                Switch(
-                                  value: med.reminderEnabled,
-                                  onChanged: null, // read-only
-                                  thumbColor: WidgetStateProperty.all(
-                                      Colors.white),
-                                  trackColor: WidgetStateProperty
-                                      .resolveWith((states) {
-                                    if (states.contains(
-                                        WidgetState.selected)) {
-                                      return _green;
-                                    }
-                                    return Colors.grey;
-                                  }),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          const SizedBox(height: 18),
-
-                          // Note
-                          const _SectionTitle('Note'),
-                          const SizedBox(height: 8),
-                          _card(
-                            child: Text(
-                              (med.notes?.trim().isNotEmpty ?? false)
-                                  ? med.notes!.trim()
-                                  : '-',
-                              style: const TextStyle(
-                                color: Color(0xFF0F172A),
-                                fontWeight: FontWeight.w600,
+                          _card(child: Row(
+                            children: [
+                              const Icon(Icons.notifications_outlined),
+                              const SizedBox(width: 10),
+                              Text(s.reminderLabel,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w700)),
+                              const Spacer(),
+                              Switch(
+                                value: med.reminderEnabled,
+                                onChanged: null,
+                                thumbColor:
+                                    WidgetStateProperty.all(Colors.white),
+                                trackColor:
+                                    WidgetStateProperty.resolveWith((states) {
+                                  if (states.contains(WidgetState.selected)) {
+                                    return _green;
+                                  }
+                                  return Colors.grey;
+                                }),
                               ),
-                            ),
-                          ),
+                            ],
+                          )),
 
                           const SizedBox(height: 18),
 
-                          // Recent Activity
-                          const _SectionTitle('Recent Activity'),
+                          _SectionTitle(s.noteLabel),
+                          const SizedBox(height: 8),
+                          _card(child: Text(
+                            (med.notes?.trim().isNotEmpty ?? false)
+                                ? med.notes!.trim()
+                                : '-',
+                            style: const TextStyle(
+                              color: Color(0xFF0F172A),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          )),
+
+                          const SizedBox(height: 18),
+
+                          _SectionTitle(s.recentActivity),
                           const SizedBox(height: 8),
                           _card(
                             child: FutureBuilder<List<_ActivityItem>>(
@@ -373,18 +324,17 @@ class _MedicationDetailsScreenState
                                   return const SizedBox(
                                     height: 40,
                                     child: Center(
-                                        child:
-                                            CircularProgressIndicator(
-                                                strokeWidth: 2)),
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2)),
                                   );
                                 }
 
                                 final items = snap.data ?? [];
 
                                 if (items.isEmpty) {
-                                  return const Text(
-                                    'No recent activity.',
-                                    style: TextStyle(
+                                  return Text(
+                                    s.noRecentActivity,
+                                    style: const TextStyle(
                                       color: Color(0xFF64748B),
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -392,34 +342,28 @@ class _MedicationDetailsScreenState
                                 }
 
                                 return Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: items
                                       .map((e) => Padding(
-                                            padding:
-                                                const EdgeInsets.only(
-                                                    bottom: 6),
+                                            padding: const EdgeInsets.only(
+                                                bottom: 6),
                                             child: Row(
                                               children: [
                                                 Container(
                                                   width: 8,
                                                   height: 8,
-                                                  decoration:
-                                                      BoxDecoration(
+                                                  decoration: BoxDecoration(
                                                     color: e.color,
-                                                    shape:
-                                                        BoxShape.circle,
+                                                    shape: BoxShape.circle,
                                                   ),
                                                 ),
                                                 const SizedBox(width: 8),
                                                 Text(
                                                   '${_formatShortDate(e.date)}  ${e.time}',
                                                   style: const TextStyle(
-                                                    color: Color(
-                                                        0xFF334155),
+                                                    color: Color(0xFF334155),
                                                     fontSize: 13,
-                                                    fontWeight:
-                                                        FontWeight.w600,
+                                                    fontWeight: FontWeight.w600,
                                                   ),
                                                 ),
                                                 const Spacer(),
@@ -427,8 +371,7 @@ class _MedicationDetailsScreenState
                                                   e.label,
                                                   style: TextStyle(
                                                     color: e.color,
-                                                    fontWeight:
-                                                        FontWeight.w700,
+                                                    fontWeight: FontWeight.w700,
                                                     fontSize: 13,
                                                   ),
                                                 ),
@@ -452,8 +395,6 @@ class _MedicationDetailsScreenState
       ),
     );
   }
-
-  // widget helpers
 
   static String _formatShortDate(DateTime d) {
     const months = [
@@ -481,20 +422,16 @@ class _MedicationDetailsScreenState
         Icon(icon, size: 20, color: const Color(0xFF0F172A)),
         const SizedBox(width: 10),
         Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF0F172A),
-            ),
-          ),
+          child: Text(text,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
         ),
       ],
     );
   }
 }
 
-// Repeat Days Row — read-only
+// Repeat days row
 
 class _RepeatDaysRow extends StatelessWidget {
   final List<String> repeatDays;

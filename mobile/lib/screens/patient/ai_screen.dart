@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/app_strings.dart';
 import '../../services/chat_service.dart';
 
 class AiScreen extends StatefulWidget {
@@ -13,15 +14,10 @@ class _AiScreenState extends State<AiScreen> {
   final _scrollController = ScrollController();
   bool _loading = false;
 
-  static const _bg = Color(0xFFF3F6FB);
-
-  // Static so history survives navigation (tab switches, push/pop)
+  // Static so history survives navigation (tab switches, push/pop).
+  // The first entry uses isWelcome=true so it renders in the current language.
   static final List<_ChatMessage> _messages = [
-    const _ChatMessage(
-      text:
-          'Hello! I\'m your personal medical assistant. Ask me anything about your medications or health routine.',
-      isUser: false,
-    ),
+    const _ChatMessage(text: '', isUser: false, isWelcome: true),
   ];
 
   @override
@@ -54,8 +50,9 @@ class _AiScreenState extends State<AiScreen> {
       setState(() => _messages.add(_ChatMessage(text: answer, isUser: false)));
     } catch (e) {
       if (!mounted) return;
+      final errorText = S.of(context).aiError;
       setState(() => _messages.add(_ChatMessage(
-            text: 'Sorry, I couldn\'t get a response. Please try again.',
+            text: errorText,
             isUser: false,
             isError: true,
           )));
@@ -81,37 +78,38 @@ class _AiScreenState extends State<AiScreen> {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final bg = Theme.of(context).scaffoldBackgroundColor;
 
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: bg,
       resizeToAvoidBottomInset: false,
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         child: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomPadding),
-                itemCount: _messages.length + (_loading ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index == _messages.length) {
-                    return const _TypingIndicator();
-                  }
-                  return _MessageBubble(message: _messages[index]);
-                },
+          bottom: false,
+          child: Column(
+            children: [
+              Expanded(
+                child: ListView.builder(
+                  controller: _scrollController,
+                  padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomPadding),
+                  itemCount: _messages.length + (_loading ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index == _messages.length) {
+                      return const _TypingIndicator();
+                    }
+                    return _MessageBubble(message: _messages[index]);
+                  },
+                ),
               ),
-            ),
-            _InputBar(
-              controller: _controller,
-              loading: _loading,
-              onSend: _send,
-              bottomInset: bottomInset + bottomPadding,
-            ),
-          ],
-        ),
+              _InputBar(
+                controller: _controller,
+                loading: _loading,
+                onSend: _send,
+                bottomInset: bottomInset + bottomPadding,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -124,11 +122,13 @@ class _ChatMessage {
   final String text;
   final bool isUser;
   final bool isError;
+  final bool isWelcome;
 
   const _ChatMessage({
     required this.text,
     required this.isUser,
     this.isError = false,
+    this.isWelcome = false,
   });
 }
 
@@ -141,8 +141,24 @@ class _MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const blue = Color(0xFF1E3A8A);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isUser = message.isUser;
     final isError = message.isError;
+
+    final String displayText =
+        message.isWelcome ? S.of(context).aiWelcome : message.text;
+
+    final bubbleBg = isError
+        ? (isDark ? const Color(0xFF3B1C1C) : const Color(0xFFFFEDED))
+        : isUser
+            ? blue
+            : Theme.of(context).colorScheme.surface;
+
+    final textColor = isError
+        ? (isDark ? const Color(0xFFFF8A8A) : const Color(0xFFB91C1C))
+        : isUser
+            ? Colors.white
+            : Theme.of(context).colorScheme.onSurface;
 
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
@@ -153,11 +169,7 @@ class _MessageBubble extends StatelessWidget {
         margin: const EdgeInsets.symmetric(vertical: 5),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: isError
-              ? const Color(0xFFFFEDED)
-              : isUser
-                  ? blue
-                  : Colors.white,
+          color: bubbleBg,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(18),
             topRight: const Radius.circular(18),
@@ -166,20 +178,16 @@ class _MessageBubble extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: .06),
+              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.06),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
           ],
         ),
         child: Text(
-          message.text,
+          displayText,
           style: TextStyle(
-            color: isError
-                ? const Color(0xFFB91C1C)
-                : isUser
-                    ? Colors.white
-                    : const Color(0xFF1E293B),
+            color: textColor,
             fontSize: 15,
             height: 1.45,
           ),
@@ -221,13 +229,16 @@ class _TypingIndicatorState extends State<_TypingIndicator>
 
   @override
   Widget build(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 5),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: surface,
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(18),
             topRight: Radius.circular(18),
@@ -236,7 +247,7 @@ class _TypingIndicatorState extends State<_TypingIndicator>
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: .06),
+              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.06),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -246,9 +257,7 @@ class _TypingIndicatorState extends State<_TypingIndicator>
           opacity: _anim,
           child: Row(
             mainAxisSize: MainAxisSize.min,
-            children: List.generate(3, (i) {
-              return _Dot(delay: i * 160);
-            }),
+            children: List.generate(3, (i) => _Dot(delay: i * 160)),
           ),
         ),
       ),
@@ -327,9 +336,16 @@ class _InputBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const blue = Color(0xFF1E3A8A);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final barBg = Theme.of(context).colorScheme.surface;
+    final fillColor =
+        isDark ? const Color(0xFF2A2A3E) : const Color(0xFFF1F5F9);
+    final hintColor =
+        isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8);
+    final s = S.of(context);
 
     return Container(
-      color: Colors.white,
+      color: barBg,
       padding: EdgeInsets.only(
         left: 16,
         right: 12,
@@ -344,11 +360,14 @@ class _InputBar extends StatelessWidget {
               minLines: 1,
               maxLines: 4,
               textCapitalization: TextCapitalization.sentences,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
               decoration: InputDecoration(
-                hintText: 'Ask about your medications…',
-                hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
+                hintText: s.aiHint,
+                hintStyle: TextStyle(color: hintColor),
                 filled: true,
-                fillColor: const Color(0xFFF1F5F9),
+                fillColor: fillColor,
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                 border: OutlineInputBorder(
@@ -370,7 +389,8 @@ class _InputBar extends StatelessWidget {
                 onTap: loading ? null : onSend,
                 child: const Padding(
                   padding: EdgeInsets.all(12),
-                  child: Icon(Icons.send_rounded, color: Colors.white, size: 22),
+                  child:
+                      Icon(Icons.send_rounded, color: Colors.white, size: 22),
                 ),
               ),
             ),
