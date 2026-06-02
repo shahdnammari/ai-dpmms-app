@@ -52,6 +52,14 @@ class ReportService {
       if (target.isAfter(end)) return false;
     }
 
+    // Check if this day of week is in the medication's repeat schedule.
+    // weekday: 1=Monday … 7=Sunday, matching allDays order.
+    if (med.repeatDays.isNotEmpty) {
+      const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      final dayName = weekdays[day.weekday - 1];
+      if (!med.repeatDays.contains(dayName)) return false;
+    }
+
     return true;
   }
 
@@ -76,6 +84,10 @@ class ReportService {
     return result;
   }
 
+  // A dose is "due" if it's today or any past day — future days are excluded.
+  // Today's doses all count regardless of what time they're scheduled at,
+  // so the report shows the complete picture (all 5 meds, not just the 2
+  // whose times have already passed).
   bool _isDoseDue({
     required DateTime day,
     required String time,
@@ -83,19 +95,23 @@ class ReportService {
   }) {
     final doseDay = _dateOnly(day);
     final today = _dateOnly(now);
+    return !doseDay.isAfter(today);
+  }
 
-    if (doseDay.isAfter(today)) return false;
+  // Whether a specific dose's scheduled time has actually passed.
+  // Used only for "most missed medication" insights — we don't want to flag
+  // a dose as "truly missed" just because it's on today's schedule but hours away.
+  bool _isDoseTimeReached({
+    required DateTime day,
+    required String time,
+    required DateTime now,
+  }) {
+    final doseDay = _dateOnly(day);
+    final today = _dateOnly(now);
     if (doseDay.isBefore(today)) return true;
-
+    if (doseDay.isAfter(today)) return false;
     final parsed = _parseHHmm(time);
-    final scheduled = DateTime(
-      day.year,
-      day.month,
-      day.day,
-      parsed.h,
-      parsed.m,
-    );
-
+    final scheduled = DateTime(day.year, day.month, day.day, parsed.h, parsed.m);
     return !scheduled.isAfter(now);
   }
 
@@ -138,11 +154,7 @@ class ReportService {
     final data = snap.data();
     if (data == null) return {};
 
-    final checked = data['checked'];
-    if (checked is Map<String, dynamic>) {
-      return checked;
-    }
-
+    // Doses are stored at the top level as Maps: { '{medId}_{time}': { status, updatedAt } }
     return Map<String, dynamic>.fromEntries(
       data.entries.where((e) => e.value is Map),
     );
@@ -189,10 +201,14 @@ class ReportService {
             taken++;
           } else if (status == 'skipped') {
             skipped++;
-          }else {
+          } else {
             missed++;
-            missedByMedicationGroup[med.groupId] =
-                (missedByMedicationGroup[med.groupId] ?? 0) + 1;
+            // Only count toward "most missed" insight if the time actually passed —
+            // today's future-scheduled doses shouldn't skew the insight.
+            if (_isDoseTimeReached(day: day, time: time, now: now)) {
+              missedByMedicationGroup[med.groupId] =
+                  (missedByMedicationGroup[med.groupId] ?? 0) + 1;
+            }
           }
         }
       }
