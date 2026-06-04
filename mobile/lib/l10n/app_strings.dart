@@ -214,7 +214,7 @@ class S {
   String get medReminder =>
       _t('Medication reminder', 'تذكير بالدواء', 'תזכורת לתרופה');
   String get doctorMessage =>
-      _t('Doctor message', 'رسالة طبيب', 'הודעת רופא');
+      _t('Message from your doctor', 'رسالة طبيب', 'הודעת רופא');
   String timeToTake(String name) => _ar
       ? 'حان وقت تناول $name'
       : _he
@@ -255,6 +255,16 @@ class S {
       _t('Monthly Overview', 'نظرة عامة شهرية', 'סקירה חודשית');
 
   // ── AI chat screen ────────────────────────────────────────────────
+  String get doctorAiWelcome => _t(
+    "Hello! I'm your AI clinical assistant. Ask me about patient adherence, treatment recommendations, or medication management.",
+    'مرحباً! أنا مساعدك السريري الذكي. اسألني عن التزام المرضى أو توصيات العلاج أو إدارة الأدوية.',
+    'שלום! אני העוזר הקליני החכם שלך. שאל אותי על עמידה של מטופלים, המלצות טיפול או ניהול תרופות.',
+  );
+  String get doctorAiHint => _t(
+    'Ask about your patients…',
+    'اسأل عن مرضاك...',
+    'שאל על המטופלים שלך...',
+  );
   String get aiWelcome => _t(
     "Hello! I'm your personal medical assistant. Ask me anything about your medications or health routine.",
     'مرحباً! أنا مساعدك الطبي الشخصي. اسألني أي شيء عن أدويتك أو روتينك الصحي.',
@@ -270,4 +280,127 @@ class S {
     'عذراً، لم أتمكن من الحصول على رد. يرجى المحاولة مرة أخرى.',
     'מצטער, לא הצלחתי לקבל תשובה. אנא נסה שוב.',
   );
+
+  // ── Doctor screens ───────────────────────────────────────────────
+  String get patients => _t('Patients', 'المرضى', 'חולים');
+  String get overview => _t('Overview', 'نظرة عامة', 'סקירה כללית');
+  String get atRisk => _t('At Risk', 'في خطر', 'בסיכון');
+  String get adherent => _t('Adherent', 'ملتزم', 'עומד');
+  String get allFilter => _t('All', 'الكل', 'הכל');
+  String get sendReminder => _t('Send Reminder', 'إرسال تذكير', 'שלח תזכורת');
+  String get sendReminderQ => _t('Send Reminder?', 'إرسال تذكير؟', 'שלח תזכורת?');
+  String get viewPatient => _t('View Patient', 'عرض المريض', 'צפה במטופל');
+  String get noAlerts => _t(
+    'No alerts at this time. All patients are on track.',
+    'لا تنبيهات في هذا الوقت. جميع المرضى على المسار الصحيح.',
+    'אין התראות כרגע. כל המטופלים עומדים ביעדים.',
+  );
+  String alertsCount(int n) =>
+      _ar ? 'التنبيهات ($n)' : _he ? 'התראות ($n)' : 'ALERTS ($n)';
+  String get patientsListTitle =>
+      _t('Patients List', 'قائمة المرضى', 'רשימת מטופלים');
+  String get searchPatientHint =>
+      _t('Search Patient name...', 'ابحث عن مريض...', 'חפש מטופל...');
+  String get noPatientsFound =>
+      _t('No patients found.', 'لا يوجد مرضى.', 'לא נמצאו מטופלים.');
+  String noMatchSearch(String q) => _ar
+      ? 'لا يوجد مريض يطابق\n"$q"'
+      : _he
+          ? 'לא נמצאו מטופלים\n"$q"'
+          : 'No patients match\n"$q"';
+  String get addNewPatient =>
+      _t('Add new patient', 'إضافة مريض جديد', 'הוסף מטופל חדש');
+  String get nameAZ => _t('A–Z', 'أ–ي', 'א–ת');
+  String get lowestAdherence =>
+      _t('Lowest adherence', 'أقل التزام', 'עמידה נמוכה ביותר');
+  String get mostMedications =>
+      _t('Most medications', 'أكثر أدوية', 'הכי הרבה תרופות');
+  String get allPatients => _t('All Patients', 'جميع المرضى', 'כל המטופלים');
+  String get adherentPatients =>
+      _t('Adherent Patients', 'المرضى الملتزمون', 'מטופלים עומדים');
+  String get atRiskPatients =>
+      _t('At Risk Patients', 'المرضى في خطر', 'מטופלים בסיכון');
+  String get noPatientsCategory => _t(
+    'No patients in this category.',
+    'لا يوجد مرضى في هذه الفئة.',
+    'אין מטופלים בקטגוריה זו.',
+  );
+  String get filterSent => _t('Sent', 'المرسل', 'נשלח');
+  String get filterSystem => _t('System', 'النظام', 'מערכת');
+  String get noSentMessages =>
+      _t('No sent messages yet.', 'لا رسائل مرسلة بعد.', 'אין הודעות שנשלחו עדיין.');
+  String get noSystemAlerts =>
+      _t('No system alerts.', 'لا تنبيهات نظام.', 'אין התראות מערכת.');
+  String get sendMessageBtn => _t('Send message', 'إرسال رسالة', 'שלח הודעה');
+  String get selectPatient => _t('Select Patient', 'اختر مريض', 'בחר מטופל');
+  String get noPatientsAvailable =>
+      _t('No patients available.', 'لا يوجد مرضى متاحون.', 'אין מטופלים זמינים.');
+  String get sendMessageTitle => _t('Send Message', 'إرسال رسالة', 'שלח הודעה');
+  String get sendReminderTitle => _t('Send Reminder', 'إرسال تذكير', 'שלח תזכורת');
+  String get titleLabel => _t('Title', 'العنوان', 'כותרת');
+  String get selectMedOptional => _t(
+    'Select Medication (optional)',
+    'اختر دواء (اختياري)',
+    'בחר תרופה (אופציונלי)',
+  );
+  String get messageField => _t('Message', 'الرسالة', 'הודעה');
+  String get sendBtn => _t('Send', 'إرسال', 'שלח');
+  String get loadingMedications =>
+      _t('Loading medications...', 'جارٍ تحميل الأدوية...', 'טוען תרופות...');
+  String get pleaseSelectPatient =>
+      _t('Please select a patient.', 'الرجاء اختيار مريض.', 'אנא בחר מטופל.');
+  String get messageCantBeEmpty => _t(
+    'Message cannot be empty.',
+    'لا يمكن أن تكون الرسالة فارغة.',
+    'ההודעה לא יכולה להיות ריקה.',
+  );
+  String get noMedicationsYet =>
+      _t('No medications yet.', 'لا توجد أدوية بعد.', 'אין תרופות עדיין.');
+  String get loadingLabel => _t('Loading...', 'جارٍ التحميل...', 'טוען...');
+  String get viewMore => _t('View more', 'عرض المزيد', 'הצג עוד');
+  String get viewLess => _t('View less', 'عرض أقل', 'הצג פחות');
+  String get viewReport => _t('View Report', 'عرض التقرير', 'צפה בדוח');
+  String get everyday => _t('Everyday', 'كل يوم', 'כל יום');
+  String get deletePatientTitle =>
+      _t('Delete Patient', 'حذف المريض', 'מחק מטופל');
+  String deletePatientConfirm(String name) => _ar
+      ? 'هل أنت متأكد من إزالة "$name" من النظام؟'
+      : _he
+          ? 'האם אתה בטוח שברצונך להסיר "$name" מהמערכת?'
+          : 'Are you sure you want to remove "$name" from the system?';
+  String deletePatientWithUndo(String name) => _ar
+      ? 'هل أنت متأكد من إزالة "$name" من النظام؟\n\nلا يمكن التراجع عن هذا الإجراء.'
+      : _he
+          ? 'האם אתה בטוח שברצונך להסיר "$name" מהמערכת?\n\nלא ניתן לבטל פעולה זו.'
+          : 'Are you sure you want to remove "$name" from the system?\n\nThis action cannot be undone.';
+  String get editMedication =>
+      _t('Edit Medication', 'تعديل الدواء', 'ערוך תרופה');
+  String nMedications(int n) => n == 1
+      ? _t('1 Medication', 'دواء واحد', 'תרופה אחת')
+      : _ar
+          ? '$n أدوية'
+          : _he
+              ? '$n תרופות'
+              : '$n Medications';
+  String adherencePct(int pct) =>
+      _ar ? 'الالتزام: $pct%' : _he ? 'עמידה: $pct%' : 'Adherence: $pct%';
+  String get helpDoctorBody => _t(
+    'For help with the dashboard, patients, or account issues,\nplease contact support.',
+    'للمساعدة في لوحة التحكم أو المرضى أو مشاكل الحساب،\nيرجى التواصل مع الدعم.',
+    'לקבלת עזרה עם לוח המחוונים, מטופלים, או בעיות חשבון,\nאנא צור קשר עם התמיכה.',
+  );
+  String toPatientName(String name) =>
+      _ar ? 'إلى $name' : _he ? 'אל $name' : 'To $name';
+  String reminderSentTo(String name) =>
+      _ar ? 'تم إرسال التذكير إلى $name' : _he ? 'התזכורת נשלחה אל $name' : 'Reminder sent to $name';
+  String messageSentTo(String name) =>
+      _ar ? 'تم إرسال الرسالة إلى $name' : _he ? 'ההודעה נשלחה אל $name' : 'Message sent to $name';
+  String get reminderFromDoctor =>
+      _t('Reminder from your doctor', 'تذكير من طبيبك', 'תזכורת מהרופא שלך');
+  String get messageFromDoctor =>
+      _t('Message from your doctor', 'رسالة من طبيبك', 'הודעה מהרופא שלך');
+  String get selectPatientHint =>
+      _t('Select patient', 'اختر مريضاً', 'בחר מטופל');
+  String removedPatient(String name) =>
+      _ar ? '"$name" تمت إزالته' : _he ? '"$name" הוסר' : '"$name" removed';
 }
