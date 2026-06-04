@@ -60,13 +60,17 @@ class _PatientShellState extends State<PatientShell> {
 
   @override
   Widget build(BuildContext context) {
+    final locale = Localizations.localeOf(context);
+    final isRtl = locale.languageCode == 'ar' || locale.languageCode == 'he';
     final s = S.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = Theme.of(context).scaffoldBackgroundColor;
     final navBg = Theme.of(context).colorScheme.surface;
     final titles = [s.home, s.medications, s.notifications, s.reports];
 
-    return Scaffold(
+    return Directionality(
+      textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+      child: Scaffold(
       backgroundColor: bg,
       body: SafeArea(
         child: Column(
@@ -209,6 +213,7 @@ class _PatientShellState extends State<PatientShell> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

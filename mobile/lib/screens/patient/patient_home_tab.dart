@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:ai_dpmms_mobile/services/app_refresh.dart';
 
 import '../../l10n/app_strings.dart';
+import '../../services/settings_service.dart';
 import '../../models/medication.dart';
 import '../../services/intake_service.dart';
 import '../../services/medications_service.dart';
@@ -93,28 +94,32 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
   }
 
   Future<void> _showMoreMenu(S s) async {
+    final isRtl = SettingsService.instance.isRtl;
     final selected = await showMenu<String>(
       context: context,
-      position: const RelativeRect.fromLTRB(1000, 145, 16, 0),
+      position: isRtl
+          ? const RelativeRect.fromLTRB(16, 145, 1000, 0)
+          : const RelativeRect.fromLTRB(1000, 145, 16, 0),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       items: [
         PopupMenuItem(
           value: 'settings',
           child: ListTile(
             dense: true,
-            leading: const Icon(Icons.settings_outlined,
-                color: Color(0xFF1E3A8A)),
+            leading: Icon(Icons.settings_outlined,
+                color: Theme.of(context).colorScheme.onSurface),
             title: Text(s.menuSetting,
-                style: const TextStyle(color: Color(0xFF1E3A8A))),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
           ),
         ),
         PopupMenuItem(
           value: 'help',
           child: ListTile(
             dense: true,
-            leading: const Icon(Icons.help_outline, color: Color(0xFF1E3A8A)),
+            leading: Icon(Icons.help_outline, 
+            color: Theme.of(context).colorScheme.onSurface),
             title: Text(s.menuHelp,
-                style: const TextStyle(color: Color(0xFF1E3A8A))),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
           ),
         ),
         const PopupMenuDivider(),
@@ -270,8 +275,8 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
                                 ),
                               );
                             },
-                            icon: const Icon(Icons.add_circle_outline,
-                                color: Color(0xFF1E3A8A), size: 26),
+                            icon: Icon(Icons.add_circle_outline,
+                                color: Theme.of(context).colorScheme.onSurface, size: 26),
                             tooltip: s.addMedication,
                           ),
                           InkWell(
@@ -283,10 +288,10 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
                                     builder: (_) => const AiScreen()),
                               );
                             },
-                            child: const Padding(
+                            child: Padding(
                               padding: EdgeInsets.all(6),
                               child: Icon(Icons.auto_awesome_outlined,
-                                  color: Color(0xFF1E3A8A), size: 22),
+                                  color: Theme.of(context).colorScheme.onSurface, size: 22),
                             ),
                           ),
                           const SizedBox(width: 4),
@@ -296,7 +301,7 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
                             child: Padding(
                               padding: const EdgeInsets.all(6),
                               child: Icon(Icons.more_vert,
-                                  color: Color(0xFF1E3A8A), size: 22),
+                                  color: Theme.of(context).colorScheme.onSurface, size: 22),
                             ),
                           ),
                         ],

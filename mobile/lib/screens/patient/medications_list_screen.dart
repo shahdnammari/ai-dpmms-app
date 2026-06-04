@@ -231,10 +231,10 @@ class _MedicationsListScreenState extends State<MedicationsListScreen> {
                         MaterialPageRoute(builder: (_) => const AiScreen()),
                       );
                     },
-                    child: const Padding(
+                    child: Padding(
                       padding: EdgeInsets.all(6),
                       child: Icon(Icons.auto_awesome_outlined,
-                          color: Color(0xFF1E3A8A), size: 22),
+                          color: isDark ? Colors.white :  Color(0xFF1E3A8A), size: 22),
                     ),
                   ),
                 ],
@@ -637,10 +637,10 @@ class _MedicationCard extends StatelessWidget {
                   value: 'edit',
                   child: ListTile(
                     dense: true,
-                    leading: const Icon(Icons.edit_outlined,
-                        color: Color(0xFF1E3A8A)),
+                    leading: Icon(Icons.edit_outlined,
+                        color: isDark ? Colors.white :  Color(0xFF1E3A8A)),
                     title: Text(s.edit,
-                        style: const TextStyle(color: Color(0xFF1E3A8A))),
+                        style: TextStyle(color: isDark ? Colors.white : Color(0xFF1E3A8A))),
                   ),
                 ),
               if (!isReadOnly)

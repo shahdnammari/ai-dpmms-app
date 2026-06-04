@@ -159,12 +159,13 @@ class NotificationsScreenState extends State<NotificationsScreen> {
                   final ts            = data['event_time'] as Timestamp?;
                   final dt            = ts?.toDate();
                   final medId         = data['medication_id'] as String?;
+                  final medName       = (data['medication_name'] as String?) ?? '';
                   final scheduledTime =
                       (data['scheduled_time'] as String?) ?? '--:--';
 
-                  final displayTitle = title.isEmpty
-                      ? (type == 'doctor' ? s.doctorMessage : s.medReminder)
-                      : title;
+                  final displayTitle = type == 'med'
+                      ? (medName.isNotEmpty ? s.timeToTake(medName) : s.medReminder)
+                      : (title.isEmpty ? s.doctorMessage : title);
 
                   return InkWell(
                     borderRadius: BorderRadius.circular(18),
