@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'dart:math' show min;
 
+import '../../l10n/app_strings.dart';
 import '../../services/app_refresh.dart';
 import 'patient_details_screen.dart';
 
@@ -33,7 +34,7 @@ class _PatientInfo {
   final String uid;
   final String name;
   final int medicationCount;
-  final double adherence; // 0.0 – 1.0
+  final double adherence;
   final DateTime? lastActivity;
 
   const _PatientInfo({
@@ -43,18 +44,6 @@ class _PatientInfo {
     required this.adherence,
     this.lastActivity,
   });
-}
-
-// Relative-time helpers
-
-String _activityLabel(DateTime? dt) {
-  if (dt == null) return 'No activity';
-  final diff = DateTime.now().difference(dt);
-  if (diff.inMinutes < 1) return 'Just now';
-  if (diff.inHours < 1) return '${diff.inMinutes}m ago';
-  if (diff.inHours < 24) return '${diff.inHours}h ago';
-  if (diff.inHours < 48) return 'Yesterday';
-  return '${diff.inDays} days ago';
 }
 
 bool _isSilent(DateTime? dt) =>
@@ -76,8 +65,8 @@ class _DoctorPatientsTabState extends State<DoctorPatientsTab> {
 
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
-  String _filter = 'all';   // 'all' | 'atRisk' | 'adherent'
-  String _sortBy = 'name';  // 'name' | 'adherence' | 'medications'
+  String _filter = 'all';
+  String _sortBy = 'name';
 
   VoidCallback? _refreshListener;
 
@@ -102,8 +91,6 @@ class _DoctorPatientsTabState extends State<DoctorPatientsTab> {
     super.dispose();
   }
 
-  // computed
-
   List<_PatientInfo> get _displayed {
     final q = _searchQuery;
     var list = _patients.where((p) {
@@ -127,15 +114,23 @@ class _DoctorPatientsTabState extends State<DoctorPatientsTab> {
     return list;
   }
 
-  String get _sortLabel {
+  String _sortLabel(S s) {
     switch (_sortBy) {
-      case 'adherence':   return 'Adherence';
-      case 'medications': return 'Medications';
-      default:            return 'A–Z';
+      case 'adherence':   return s.adherence;
+      case 'medications': return s.medications;
+      default:            return s.nameAZ;
     }
   }
 
-  // data
+  String _activityLabel(DateTime? dt, S s) {
+    if (dt == null) return s.noRecentActivity;
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1)  return s.justNow;
+    if (diff.inHours < 1)    return s.minsAgo(diff.inMinutes);
+    if (diff.inHours < 24)   return s.hoursAgo(diff.inHours);
+    if (diff.inHours < 48)   return s.yesterday;
+    return s.daysAgo(diff.inDays);
+  }
 
   String _dateId(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-'
@@ -214,9 +209,8 @@ class _DoctorPatientsTabState extends State<DoctorPatientsTab> {
     }
   }
 
-  // actions
-
   void _softDelete(_PatientInfo patient) {
+    final s = S.of(context);
     final idx = _patients.indexOf(patient);
     if (idx < 0) return;
     setState(() => _patients.removeAt(idx));
@@ -225,7 +219,7 @@ class _DoctorPatientsTabState extends State<DoctorPatientsTab> {
     final messenger = ScaffoldMessenger.of(context);
     messenger.removeCurrentSnackBar();
     final controller = messenger.showSnackBar(SnackBar(
-      content: Text('"${patient.name}" removed'),
+      content: Text(s.removedPatient(patient.name)),
       duration: const Duration(seconds: 4),
       action: SnackBarAction(
         label: 'Undo',
@@ -245,7 +239,6 @@ class _DoctorPatientsTabState extends State<DoctorPatientsTab> {
             .doc(patient.uid)
             .delete();
       } catch (e) {
-        // Re-insert the patient and surface the error
         if (mounted) {
           setState(() => _patients.insert(
               idx.clamp(0, _patients.length), patient));
@@ -258,27 +251,26 @@ class _DoctorPatientsTabState extends State<DoctorPatientsTab> {
   }
 
   Future<void> _confirmDelete(_PatientInfo patient) async {
+    final s = S.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Delete Patient',
-            style: TextStyle(fontWeight: FontWeight.w800)),
-        content: Text(
-          'Are you sure you want to remove "${patient.name}" from the system?',
-        ),
+        title: Text(s.deletePatientTitle,
+            style: const TextStyle(fontWeight: FontWeight.w800)),
+        content: Text(s.deletePatientConfirm(patient.name)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(s.cancel),
           ),
           TextButton(
             style: TextButton.styleFrom(
                 foregroundColor: const Color(0xFFDC2626)),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete',
-                style: TextStyle(fontWeight: FontWeight.w700)),
+            child: Text(s.delete,
+                style: const TextStyle(fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -307,7 +299,6 @@ class _DoctorPatientsTabState extends State<DoctorPatientsTab> {
         transitionsBuilder: (ctx, a1, a2, child) => child,
       ),
     );
-    // If the patient was deleted from inside the details screen, reload the list
     if (deleted == true) _loadPatients();
   }
 
@@ -316,14 +307,12 @@ class _DoctorPatientsTabState extends State<DoctorPatientsTab> {
         const SnackBar(content: Text('Add Patient — coming soon')),
       );
 
-  // list builder
-
   List<Widget> _buildListItems(List<_PatientInfo> items) {
+    final s = S.of(context);
     final widgets = <Widget>[];
     String? lastLetter;
 
     for (final patient in items) {
-      // Alpha header only when sorted A–Z
       if (_sortBy == 'name') {
         final letter =
             patient.name.isNotEmpty ? patient.name[0].toUpperCase() : '#';
@@ -346,7 +335,7 @@ class _DoctorPatientsTabState extends State<DoctorPatientsTab> {
                 backgroundColor: const Color(0xFFDC2626),
                 foregroundColor: Colors.white,
                 icon: Icons.delete_outline,
-                label: 'Delete',
+                label: s.delete,
                 borderRadius: const BorderRadius.only(
                   topRight: Radius.circular(18),
                   bottomRight: Radius.circular(18),
@@ -356,6 +345,8 @@ class _DoctorPatientsTabState extends State<DoctorPatientsTab> {
           ),
           child: _PatientCard(
             patient: patient,
+            activityLabel: _activityLabel(patient.lastActivity, s),
+            isSilent: _isSilent(patient.lastActivity),
             onEdit: () => _onEdit(patient),
             onDelete: () => _confirmDelete(patient),
             onDetails: () => _onDetails(patient),
@@ -367,14 +358,15 @@ class _DoctorPatientsTabState extends State<DoctorPatientsTab> {
     return widgets;
   }
 
-  // build
-
   @override
   Widget build(BuildContext context) {
+    final s = S.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Stack(
       children: [
         Container(
-          color: const Color(0xFFF3F6FB),
+          color: Theme.of(context).scaffoldBackgroundColor,
           child: Column(
             children: [
               // Search bar
@@ -382,26 +374,35 @@ class _DoctorPatientsTabState extends State<DoctorPatientsTab> {
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
                     borderRadius: BorderRadius.circular(16),
-                    boxShadow: const [
+                    boxShadow: [
                       BoxShadow(
                           blurRadius: 8,
-                          offset: Offset(0, 2),
-                          color: Color(0x0A000000)),
+                          offset: const Offset(0, 2),
+                          color: Colors.black
+                              .withValues(alpha: isDark ? 0.2 : 0.04)),
                     ],
                   ),
                   child: TextField(
                     controller: _searchCtrl,
-                    style: const TextStyle(fontSize: 15),
-                    decoration: const InputDecoration(
-                      hintText: 'Search Patient name...',
+                    style: TextStyle(
+                        fontSize: 15,
+                        color: isDark ? Colors.white : null),
+                    decoration: InputDecoration(
+                      hintText: s.searchPatientHint,
                       hintStyle: TextStyle(
-                          color: Color(0xFF94A3B8), fontSize: 15),
+                          color: isDark
+                              ? Colors.white38
+                              : const Color(0xFF94A3B8),
+                          fontSize: 15),
                       prefixIcon: Icon(Icons.search,
-                          color: Color(0xFF94A3B8), size: 22),
+                          color: isDark
+                              ? Colors.white38
+                              : const Color(0xFF94A3B8),
+                          size: 22),
                       border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(
+                      contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 14),
                     ),
                   ),
@@ -415,68 +416,86 @@ class _DoctorPatientsTabState extends State<DoctorPatientsTab> {
                 child: Row(
                   children: [
                     _ChipFilter(
-                      label: 'All',
+                      label: s.allFilter,
                       active: _filter == 'all',
                       onTap: () => setState(() => _filter = 'all'),
                     ),
                     const SizedBox(width: 8),
                     _ChipFilter(
-                      label: 'At Risk',
+                      label: s.atRisk,
                       active: _filter == 'atRisk',
                       color: const Color(0xFFDC2626),
                       onTap: () => setState(() => _filter = 'atRisk'),
                     ),
                     const SizedBox(width: 8),
                     _ChipFilter(
-                      label: 'Adherent',
+                      label: s.adherent,
                       active: _filter == 'adherent',
                       color: const Color(0xFF22C55E),
                       onTap: () => setState(() => _filter = 'adherent'),
                     ),
                     const SizedBox(width: 16),
-                    // Sort dropdown
                     PopupMenuButton<String>(
-                      onSelected: (v) =>
-                          setState(() => _sortBy = v),
+                      onSelected: (v) => setState(() => _sortBy = v),
                       offset: const Offset(0, 36),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14)),
-                      itemBuilder: (_) => const [
+                      color: isDark ? const Color(0xFF1E1E2E) : null,
+                      itemBuilder: (_) => [
                         PopupMenuItem(
-                            value: 'name', child: Text('Name A–Z')),
+                            value: 'name',
+                            child: Text(s.nameAZ,
+                                style: TextStyle(
+                                    color: isDark ? Colors.white : null))),
                         PopupMenuItem(
                             value: 'adherence',
-                            child: Text('Lowest adherence')),
+                            child: Text(s.lowestAdherence,
+                                style: TextStyle(
+                                    color: isDark ? Colors.white : null))),
                         PopupMenuItem(
                             value: 'medications',
-                            child: Text('Most medications')),
+                            child: Text(s.mostMedications,
+                                style: TextStyle(
+                                    color: isDark ? Colors.white : null))),
                       ],
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 7),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: isDark
+                              ? const Color(0xFF1E1E2E)
+                              : Colors.white,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                              color: const Color(0xFFE2E8F0)),
+                              color: isDark
+                                  ? const Color(0xFF3A3A5C)
+                                  : const Color(0xFFE2E8F0)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.sort,
-                                size: 14, color: Color(0xFF64748B)),
+                            Icon(Icons.sort,
+                                size: 14,
+                                color: isDark
+                                    ? Colors.white54
+                                    : const Color(0xFF64748B)),
                             const SizedBox(width: 4),
                             Text(
-                              _sortLabel,
-                              style: const TextStyle(
+                              _sortLabel(s),
+                              style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF64748B),
+                                color: isDark
+                                    ? Colors.white54
+                                    : const Color(0xFF64748B),
                               ),
                             ),
                             const SizedBox(width: 2),
-                            const Icon(Icons.keyboard_arrow_down,
-                                size: 14, color: Color(0xFF64748B)),
+                            Icon(Icons.keyboard_arrow_down,
+                                size: 14,
+                                color: isDark
+                                    ? Colors.white54
+                                    : const Color(0xFF64748B)),
                           ],
                         ),
                       ),
@@ -486,7 +505,7 @@ class _DoctorPatientsTabState extends State<DoctorPatientsTab> {
               ),
 
               // Content
-              Expanded(child: _buildContent()),
+              Expanded(child: _buildContent(s, isDark)),
             ],
           ),
         ),
@@ -500,15 +519,14 @@ class _DoctorPatientsTabState extends State<DoctorPatientsTab> {
             shape: const CircleBorder(),
             onPressed: _onAddPatient,
             backgroundColor: const Color(0xFF1E3A8A),
-            child: const Icon(Icons.person_add_outlined,
-                color: Colors.white),
+            child: const Icon(Icons.person_add_outlined, color: Colors.white),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildContent() {
+  Widget _buildContent(S s, bool isDark) {
     if (_error != null) {
       return Center(
         child: Padding(
@@ -539,21 +557,19 @@ class _DoctorPatientsTabState extends State<DoctorPatientsTab> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 80),
         children: [
-          // Section heading
           Row(
             children: [
-              const Text(
-                'Patients List',
+              Text(
+                s.patientsListTitle,
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w900,
-                  color: Color(0xFF1F2937),
+                  color: isDark ? Colors.white : const Color(0xFF1F2937),
                 ),
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: const Color(0xFF1E3A8A).withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(999),
@@ -571,19 +587,19 @@ class _DoctorPatientsTabState extends State<DoctorPatientsTab> {
           ),
           const SizedBox(height: 12),
 
-          // Empty states
           if (displayed.isEmpty && _searchQuery.isNotEmpty) ...[
             const SizedBox(height: 40),
             Center(
               child: Column(
                 children: [
-                  const Icon(Icons.search_off,
-                      size: 52, color: Color(0xFFCBD5E1)),
+                  Icon(Icons.search_off,
+                      size: 52,
+                      color: isDark ? Colors.white24 : const Color(0xFFCBD5E1)),
                   const SizedBox(height: 12),
                   Text(
-                    'No patients match\n"${_searchCtrl.text}"',
-                    style: const TextStyle(
-                      color: Color(0xFF94A3B8),
+                    s.noMatchSearch(_searchCtrl.text),
+                    style: TextStyle(
+                      color: isDark ? Colors.white38 : const Color(0xFF94A3B8),
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
                     ),
@@ -593,7 +609,7 @@ class _DoctorPatientsTabState extends State<DoctorPatientsTab> {
                   OutlinedButton.icon(
                     onPressed: _onAddPatient,
                     icon: const Icon(Icons.person_add_outlined, size: 16),
-                    label: const Text('Add new patient'),
+                    label: Text(s.addNewPatient),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFF1E3A8A),
                       side: const BorderSide(color: Color(0xFF1E3A8A)),
@@ -606,11 +622,11 @@ class _DoctorPatientsTabState extends State<DoctorPatientsTab> {
             ),
           ] else if (displayed.isEmpty) ...[
             const SizedBox(height: 40),
-            const Center(
+            Center(
               child: Text(
-                'No patients found.',
+                s.noPatientsFound,
                 style: TextStyle(
-                  color: Color(0xFF94A3B8),
+                  color: isDark ? Colors.white38 : const Color(0xFF94A3B8),
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
                 ),
@@ -641,17 +657,24 @@ class _ChipFilter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
         decoration: BoxDecoration(
-          color: active ? color : Colors.white,
+          color: active
+              ? color
+              : (isDark ? const Color(0xFF1E1E2E) : Colors.white),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-              color: active ? color : const Color(0xFFE2E8F0)),
+              color: active
+                  ? color
+                  : (isDark
+                      ? const Color(0xFF3A3A5C)
+                      : const Color(0xFFE2E8F0))),
           boxShadow: active
               ? [
                   BoxShadow(
@@ -667,7 +690,9 @@ class _ChipFilter extends StatelessWidget {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w700,
-            color: active ? Colors.white : const Color(0xFF64748B),
+            color: active
+                ? Colors.white
+                : (isDark ? Colors.white54 : const Color(0xFF64748B)),
           ),
         ),
       ),
@@ -683,14 +708,15 @@ class _AlphaHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 6, 0, 4),
       child: Text(
         letter,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w900,
-          color: Color(0xFF94A3B8),
+          color: isDark ? Colors.white38 : const Color(0xFF94A3B8),
           letterSpacing: 1.2,
         ),
       ),
@@ -702,6 +728,8 @@ class _AlphaHeader extends StatelessWidget {
 
 class _PatientCard extends StatefulWidget {
   final _PatientInfo patient;
+  final String activityLabel;
+  final bool isSilent;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onDetails;
@@ -709,6 +737,8 @@ class _PatientCard extends StatefulWidget {
 
   const _PatientCard({
     required this.patient,
+    required this.activityLabel,
+    required this.isSilent,
     required this.onEdit,
     required this.onDelete,
     required this.onDetails,
@@ -730,15 +760,12 @@ class _PatientCardState extends State<_PatientCard> {
 
   @override
   Widget build(BuildContext context) {
+    final s = S.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final p = widget.patient;
     final pct = (p.adherence * 100).round();
-    final medLabel = p.medicationCount == 1
-        ? '1 Medication'
-        : '${p.medicationCount} Medications';
     final color = _avatarColor(p.name);
     final initials = _initials(p.name);
-    final silent = _isSilent(p.lastActivity);
-    final label = _activityLabel(p.lastActivity);
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
@@ -753,52 +780,48 @@ class _PatientCardState extends State<_PatientCard> {
         child: Container(
           padding: const EdgeInsets.fromLTRB(16, 14, 4, 14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
             borderRadius: BorderRadius.circular(18),
-            boxShadow: const [
+            boxShadow: [
               BoxShadow(
                   blurRadius: 10,
-                  offset: Offset(0, 3),
-                  color: Color(0x0F000000)),
+                  offset: const Offset(0, 3),
+                  color: Colors.black
+                      .withValues(alpha: isDark ? 0.25 : 0.06)),
             ],
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Initials avatar
               Container(
-                width: 44,
-                height: 44,
+                width: 44, height: 44,
                 alignment: Alignment.center,
-                decoration: BoxDecoration(
-                    color: color, shape: BoxShape.circle),
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
                 child: Text(
                   initials,
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5,
+                    color: Colors.white, fontSize: 15,
+                    fontWeight: FontWeight.w800, letterSpacing: 0.5,
                   ),
                 ),
               ),
               const SizedBox(width: 12),
 
-              // Name · activity · medications · adherence
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Name + last activity timestamp
                     Row(
                       children: [
                         Expanded(
                           child: Text(
                             p.name,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w800,
-                              color: Color(0xFF1F2937),
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF1F2937),
                             ),
                           ),
                         ),
@@ -807,18 +830,22 @@ class _PatientCardState extends State<_PatientCard> {
                           children: [
                             Icon(Icons.access_time,
                                 size: 11,
-                                color: silent
+                                color: widget.isSilent
                                     ? const Color(0xFFDC2626)
-                                    : const Color(0xFF94A3B8)),
+                                    : (isDark
+                                        ? Colors.white38
+                                        : const Color(0xFF94A3B8))),
                             const SizedBox(width: 3),
                             Text(
-                              label,
+                              widget.activityLabel,
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w500,
-                                color: silent
+                                color: widget.isSilent
                                     ? const Color(0xFFDC2626)
-                                    : const Color(0xFF94A3B8),
+                                    : (isDark
+                                        ? Colors.white38
+                                        : const Color(0xFF94A3B8)),
                               ),
                             ),
                           ],
@@ -827,35 +854,39 @@ class _PatientCardState extends State<_PatientCard> {
                     ),
                     const SizedBox(height: 3),
 
-                    // Medication count
                     Row(
                       children: [
                         Icon(Icons.medication_outlined,
                             size: 13,
-                            color: const Color(0xFF64748B)
+                            color: (isDark
+                                    ? Colors.white38
+                                    : const Color(0xFF64748B))
                                 .withValues(alpha: 0.8)),
                         const SizedBox(width: 4),
                         Text(
-                          medLabel,
-                          style: const TextStyle(
+                          s.nMedications(p.medicationCount),
+                          style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF64748B),
+                            color: isDark
+                                ? Colors.white38
+                                : const Color(0xFF64748B),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
 
-                    // Adherence label + %
                     Row(
                       children: [
-                        const Text(
-                          'Adherence',
+                        Text(
+                          s.adherence,
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF94A3B8),
+                            color: isDark
+                                ? Colors.white38
+                                : const Color(0xFF94A3B8),
                           ),
                         ),
                         const Spacer(),
@@ -871,22 +902,21 @@ class _PatientCardState extends State<_PatientCard> {
                     ),
                     const SizedBox(height: 4),
 
-                    // Progress bar
                     ClipRRect(
                       borderRadius: BorderRadius.circular(999),
                       child: LinearProgressIndicator(
                         value: p.adherence,
                         minHeight: 7,
-                        backgroundColor: const Color(0xFFE2E8F0),
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(_barColor),
+                        backgroundColor: isDark
+                            ? const Color(0xFF3A3A5C)
+                            : const Color(0xFFE2E8F0),
+                        valueColor: AlwaysStoppedAnimation<Color>(_barColor),
                       ),
                     ),
                   ],
                 ),
               ),
 
-              // Three-dot menu
               PopupMenuButton<String>(
                 onSelected: (v) {
                   if (v == 'edit') widget.onEdit();
@@ -896,21 +926,25 @@ class _PatientCardState extends State<_PatientCard> {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16)),
                 elevation: 4,
-                icon: const Icon(Icons.more_vert,
-                    color: Color(0xFF94A3B8), size: 20),
-                itemBuilder: (_) => const [
+                color: isDark ? const Color(0xFF1E1E2E) : null,
+                icon: Icon(Icons.more_vert,
+                    color: isDark ? Colors.white38 : const Color(0xFF94A3B8),
+                    size: 20),
+                itemBuilder: (_) => [
                   PopupMenuItem(
                     value: 'edit',
                     height: 44,
                     child: Row(
                       children: [
                         Icon(Icons.edit_outlined,
-                            color: Color(0xFF1E3A8A), size: 18),
-                        SizedBox(width: 10),
-                        Text('Edit',
+                          color: isDark ? Colors.white :  Color(0xFF1E3A8A), size: 18),
+                        const SizedBox(width: 10),
+                        Text(s.edit,
                             style: TextStyle(
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF1E3A8A))),
+                                color: isDark
+                                    ? Colors.white
+                                    : const Color(0xFF1E3A8A))),
                       ],
                     ),
                   ),
@@ -919,11 +953,11 @@ class _PatientCardState extends State<_PatientCard> {
                     height: 44,
                     child: Row(
                       children: [
-                        Icon(Icons.delete_outline,
+                        const Icon(Icons.delete_outline,
                             color: Color(0xFFDC2626), size: 18),
-                        SizedBox(width: 10),
-                        Text('Delete',
-                            style: TextStyle(
+                        const SizedBox(width: 10),
+                        Text(s.delete,
+                            style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                                 color: Color(0xFFDC2626))),
                       ],
@@ -935,12 +969,17 @@ class _PatientCardState extends State<_PatientCard> {
                     child: Row(
                       children: [
                         Icon(Icons.info_outline,
-                            color: Color(0xFF64748B), size: 18),
-                        SizedBox(width: 10),
-                        Text('Details',
+                            color: isDark
+                                ? Colors.white54
+                                : const Color(0xFF64748B),
+                            size: 18),
+                        const SizedBox(width: 10),
+                        Text(s.details,
                             style: TextStyle(
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF64748B))),
+                                color: isDark
+                                    ? Colors.white54
+                                    : const Color(0xFF64748B))),
                       ],
                     ),
                   ),
@@ -987,6 +1026,10 @@ class _SkeletonCardState extends State<_SkeletonCard>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+    final skelBg = isDark ? const Color(0xFF2A2A4A) : const Color(0xFFE2E8F0);
+
     return AnimatedBuilder(
       animation: _opacity,
       builder: (_, _) => Opacity(
@@ -995,18 +1038,15 @@ class _SkeletonCardState extends State<_SkeletonCard>
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cardBg,
             borderRadius: BorderRadius.circular(18),
           ),
           child: Row(
             children: [
-              // Avatar placeholder
               Container(
-                width: 44,
-                height: 44,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE2E8F0),
-                  shape: BoxShape.circle,
+                width: 44, height: 44,
+                decoration: BoxDecoration(
+                  color: skelBg, shape: BoxShape.circle,
                 ),
               ),
               const SizedBox(width: 12),
@@ -1015,29 +1055,24 @@ class _SkeletonCardState extends State<_SkeletonCard>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      height: 14,
-                      width: 140,
+                      height: 14, width: 140,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE2E8F0),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                          color: skelBg,
+                          borderRadius: BorderRadius.circular(8)),
                     ),
                     const SizedBox(height: 7),
                     Container(
-                      height: 10,
-                      width: 90,
+                      height: 10, width: 90,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE2E8F0),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                          color: skelBg,
+                          borderRadius: BorderRadius.circular(8)),
                     ),
                     const SizedBox(height: 10),
                     Container(
                       height: 7,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE2E8F0),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
+                          color: skelBg,
+                          borderRadius: BorderRadius.circular(999)),
                     ),
                   ],
                 ),

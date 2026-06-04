@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../models/report_models.dart';
 import '../../services/report_service.dart';
 import '../../services/report_export_service.dart';
@@ -149,9 +150,12 @@ class _DoctorReportsTabState extends State<DoctorReportsTab> {
   }
 
   void _showExportSheet(ReportResult data) {
+    final s = S.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? const Color(0xFF1E1E2E) : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -163,26 +167,28 @@ class _DoctorReportsTabState extends State<DoctorReportsTab> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 42,
-                  height: 4,
+                  width: 42, height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: isDark
+                        ? Colors.white24
+                        : Colors.grey.shade300,
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),
                 const SizedBox(height: 18),
-                const Text(
-                  'Export Report',
+                Text(
+                  s.exportReport,
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF0F172A),
+                    color: isDark ? Colors.white : const Color(0xFF0F172A),
                   ),
                 ),
                 const SizedBox(height: 18),
                 _exportTile(
                   icon: Icons.picture_as_pdf_outlined,
-                  title: 'Export as PDF',
+                  title: s.exportPdf,
+                  isDark: isDark,
                   onTap: () async {
                     Navigator.pop(context);
                     await _exportService.sharePdf(
@@ -194,7 +200,8 @@ class _DoctorReportsTabState extends State<DoctorReportsTab> {
                 ),
                 _exportTile(
                   icon: Icons.share_outlined,
-                  title: 'Share',
+                  title: s.share,
+                  isDark: isDark,
                   onTap: () async {
                     Navigator.pop(context);
                     await _exportService.sharePdf(
@@ -206,7 +213,8 @@ class _DoctorReportsTabState extends State<DoctorReportsTab> {
                 ),
                 _exportTile(
                   icon: Icons.print_outlined,
-                  title: 'Print',
+                  title: s.print,
+                  isDark: isDark,
                   onTap: () async {
                     Navigator.pop(context);
                     await _exportService.printPdf(
@@ -226,25 +234,34 @@ class _DoctorReportsTabState extends State<DoctorReportsTab> {
   Widget _exportTile({
     required IconData icon,
     required String title,
+    required bool isDark,
     required VoidCallback onTap,
   }) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      leading: Icon(icon, color: const Color(0xFF1E3A8A)),
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontWeight: FontWeight.w700,
-          color: Color(0xFF0F172A),
-        ),
+      leading: const Icon(Icons.circle, color: Color(0xFF1E3A8A), size: 0),
+      title: Row(
+        children: [
+          Icon(icon, color: const Color(0xFF1E3A8A)),
+          const SizedBox(width: 12),
+          Text(
+            title,
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white : const Color(0xFF0F172A),
+            ),
+          ),
+        ],
       ),
       onTap: onTap,
     );
   }
 
   void _showPatientPicker() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
       context: context,
+      backgroundColor: isDark ? const Color(0xFF1E1E2E) : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -291,9 +308,10 @@ class _DoctorReportsTabState extends State<DoctorReportsTab> {
   }
 
   void _onExport() {
+    final s = S.of(context);
     if (_lastReportData == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Report is still loading.')),
+        SnackBar(content: Text(s.loadingLabel)),
       );
       return;
     }
@@ -302,7 +320,9 @@ class _DoctorReportsTabState extends State<DoctorReportsTab> {
 
   @override
   Widget build(BuildContext context) {
-    const bg = Color(0xFFF3F6FB);
+    final s = S.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = Theme.of(context).scaffoldBackgroundColor;
 
     if (_fetchingPatients) {
       return Scaffold(
@@ -321,7 +341,7 @@ class _DoctorReportsTabState extends State<DoctorReportsTab> {
       body: SafeArea(
         child: Column(
           children: [
-            //Patient selector + three-dot menu
+            // Patient selector + three-dot menu
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
               child: Row(
@@ -333,23 +353,27 @@ class _DoctorReportsTabState extends State<DoctorReportsTab> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 14, vertical: 10),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: isDark
+                              ? const Color(0xFF1E1E2E)
+                              : Colors.white,
                           borderRadius: BorderRadius.circular(30),
-                          border:
-                              Border.all(color: const Color(0xFFE2E8F0)),
-                          boxShadow: const [
+                          border: Border.all(
+                              color: isDark
+                                  ? const Color(0xFF3A3A5C)
+                                  : const Color(0xFFE2E8F0)),
+                          boxShadow: [
                             BoxShadow(
                               blurRadius: 6,
-                              offset: Offset(0, 2),
-                              color: Color(0x08000000),
+                              offset: const Offset(0, 2),
+                              color: Colors.black
+                                  .withValues(alpha: isDark ? 0.2 : 0.03),
                             ),
                           ],
                         ),
                         child: Row(
                           children: [
                             Container(
-                              width: 26,
-                              height: 26,
+                              width: 26, height: 26,
                               decoration: BoxDecoration(
                                 color: const Color(0xFF1E3A8A)
                                     .withValues(alpha: 0.10),
@@ -361,26 +385,32 @@ class _DoctorReportsTabState extends State<DoctorReportsTab> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                _selectedPatientName ?? 'No patients found',
+                                _selectedPatientName ?? s.noPatientsAvailable,
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700,
                                   color: _selectedPatientName != null
-                                      ? const Color(0xFF1F2937)
-                                      : const Color(0xFF94A3B8),
+                                      ? (isDark
+                                          ? Colors.white
+                                          : const Color(0xFF1F2937))
+                                      : (isDark
+                                          ? Colors.white38
+                                          : const Color(0xFF94A3B8)),
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            const Icon(Icons.keyboard_arrow_down_rounded,
-                                color: Color(0xFF94A3B8), size: 18),
+                            Icon(Icons.keyboard_arrow_down_rounded,
+                                color: isDark
+                                    ? Colors.white38
+                                    : const Color(0xFF94A3B8),
+                                size: 18),
                           ],
                         ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  // Three-dot menu
                   PopupMenuButton<String>(
                     onSelected: (v) {
                       if (v == 'message') _onSendMessage();
@@ -391,58 +421,68 @@ class _DoctorReportsTabState extends State<DoctorReportsTab> {
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16)),
                     elevation: 4,
-                    icon: const Icon(Icons.more_vert,
-                        color: Color(0xFF64748B), size: 22),
+                    color: isDark ? const Color(0xFF1E1E2E) : null,
+                    icon: Icon(Icons.more_vert,
+                        color: isDark
+                            ? Colors.white54
+                            : const Color(0xFF64748B),
+                        size: 22),
                     itemBuilder: (_) => [
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'message',
                         height: 46,
                         child: Row(
                           children: [
-                            Icon(Icons.near_me_outlined,
+                            const Icon(Icons.near_me_outlined,
                                 color: Color(0xFF1E3A8A), size: 18),
-                            SizedBox(width: 10),
+                            const SizedBox(width: 10),
                             Text(
-                              'Send Message',
+                              s.sendMessageTitle,
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF1F2937),
+                                color: isDark
+                                    ? Colors.white
+                                    : const Color(0xFF1F2937),
                               ),
                             ),
                           ],
                         ),
                       ),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'edit',
                         height: 46,
                         child: Row(
                           children: [
-                            Icon(Icons.edit_outlined,
+                            const Icon(Icons.edit_outlined,
                                 color: Color(0xFF1E3A8A), size: 18),
-                            SizedBox(width: 10),
+                            const SizedBox(width: 10),
                             Text(
-                              'Edit Medication',
+                              s.editMedication,
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF1F2937),
+                                color: isDark
+                                    ? Colors.white
+                                    : const Color(0xFF1F2937),
                               ),
                             ),
                           ],
                         ),
                       ),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'export',
                         height: 46,
                         child: Row(
                           children: [
-                            Icon(Icons.ios_share_outlined,
+                            const Icon(Icons.ios_share_outlined,
                                 color: Color(0xFF1E3A8A), size: 18),
-                            SizedBox(width: 10),
+                            const SizedBox(width: 10),
                             Text(
-                              'Export',
+                              s.exportButton,
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF1F2937),
+                                color: isDark
+                                    ? Colors.white
+                                    : const Color(0xFF1F2937),
                               ),
                             ),
                           ],
@@ -457,27 +497,27 @@ class _DoctorReportsTabState extends State<DoctorReportsTab> {
             // Report content
             Expanded(
               child: _selectedPatientId == null
-                  ? const Center(
+                  ? Center(
                       child: Text(
-                        'No patients available.',
+                        s.noPatientsAvailable,
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF94A3B8),
+                          color: isDark
+                              ? Colors.white38
+                              : const Color(0xFF94A3B8),
                         ),
                       ),
                     )
                   : FutureBuilder<ReportResult>(
                       future: _reportFuture,
                       builder: (context, snap) {
-                        if (snap.connectionState ==
-                                ConnectionState.waiting &&
+                        if (snap.connectionState == ConnectionState.waiting &&
                             !snap.hasData) {
                           return SingleChildScrollView(
                             padding:
                                 const EdgeInsets.fromLTRB(16, 14, 16, 24),
-                            child:
-                                const _SkeletonReportContent(),
+                            child: const _SkeletonReportContent(),
                           );
                         }
 
@@ -509,15 +549,17 @@ class _DoctorReportsTabState extends State<DoctorReportsTab> {
                             onRefresh: _onRefresh,
                             child: ListView(
                               physics: const AlwaysScrollableScrollPhysics(),
-                              children: const [
-                                SizedBox(height: 180),
+                              children: [
+                                const SizedBox(height: 180),
                                 Center(
                                   child: Text(
-                                    'No report data yet.',
+                                    s.noReportData,
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
-                                      color: Color(0xFF64748B),
+                                      color: isDark
+                                          ? Colors.white38
+                                          : const Color(0xFF64748B),
                                     ),
                                   ),
                                 ),
@@ -555,18 +597,16 @@ class _DoctorReportsTabState extends State<DoctorReportsTab> {
                                 const SizedBox(height: 18),
                                 _InsightCard(
                                   icon: Icons.workspace_premium_outlined,
-                                  title: _selectedType ==
-                                          ReportPeriodType.week
-                                      ? 'Best Day'
-                                      : 'Best Week',
+                                  title: _selectedType == ReportPeriodType.week
+                                      ? s.bestDay
+                                      : s.bestWeek,
                                   value: data.insights.bestLabel,
                                 ),
                                 const SizedBox(height: 10),
                                 _InsightCard(
                                   icon: Icons.warning_amber_rounded,
-                                  title: 'Most Missed',
-                                  value:
-                                      data.insights.mostMissedMedication,
+                                  title: s.mostMissed,
+                                  value: data.insights.mostMissedMedication,
                                 ),
                               ],
                             ),
@@ -597,22 +637,27 @@ class _PatientPickerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = S.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         const SizedBox(height: 12),
         Container(
-          width: 40,
-          height: 4,
+          width: 40, height: 4,
           decoration: BoxDecoration(
-            color: Colors.grey.shade300,
+            color: isDark ? Colors.white24 : Colors.grey.shade300,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
         const SizedBox(height: 16),
-        const Text(
-          'Select Patient',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+        Text(
+          s.selectPatient,
+          style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: isDark ? Colors.white : null),
         ),
         const SizedBox(height: 8),
         Flexible(
@@ -627,9 +672,7 @@ class _PatientPickerSheet extends StatelessWidget {
                   backgroundColor:
                       const Color(0xFF1E3A8A).withValues(alpha: 0.10),
                   child: Text(
-                    p['name']!.isNotEmpty
-                        ? p['name']![0].toUpperCase()
-                        : '?',
+                    p['name']!.isNotEmpty ? p['name']![0].toUpperCase() : '?',
                     style: const TextStyle(
                       color: Color(0xFF1E3A8A),
                       fontWeight: FontWeight.w800,
@@ -641,6 +684,7 @@ class _PatientPickerSheet extends StatelessWidget {
                   style: TextStyle(
                     fontWeight:
                         selected ? FontWeight.w800 : FontWeight.w600,
+                    color: isDark ? Colors.white : null,
                   ),
                 ),
                 trailing: selected
@@ -670,17 +714,18 @@ class _PeriodSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = S.of(context);
     return Center(
       child: Wrap(
         spacing: 10,
         children: [
           _PeriodChip(
-            text: 'Week',
+            text: s.reportWeek,
             selected: selectedType == ReportPeriodType.week,
             onTap: () => onChanged(ReportPeriodType.week),
           ),
           _PeriodChip(
-            text: 'Month',
+            text: s.reportMonth,
             selected: selectedType == ReportPeriodType.month,
             onTap: () => onChanged(ReportPeriodType.month),
           ),
@@ -703,27 +748,33 @@ class _PeriodChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
-      color: selected ? const Color(0xFF2563EB) : Colors.white,
+      color: selected
+          ? const Color(0xFF2563EB)
+          : (isDark ? const Color(0xFF1E1E2E) : Colors.white),
       borderRadius: BorderRadius.circular(999),
       child: InkWell(
         borderRadius: BorderRadius.circular(999),
         onTap: onTap,
         child: Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(999),
             border: Border.all(
               color: selected
                   ? const Color(0xFF2563EB)
-                  : const Color(0xFFD1D5DB),
+                  : (isDark
+                      ? const Color(0xFF3A3A5C)
+                      : const Color(0xFFD1D5DB)),
             ),
           ),
           child: Text(
             text,
             style: TextStyle(
-              color: selected ? Colors.white : const Color(0xFF334155),
+              color: selected
+                  ? Colors.white
+                  : (isDark ? Colors.white70 : const Color(0xFF334155)),
               fontWeight: FontWeight.w800,
               fontSize: 13,
             ),
@@ -749,17 +800,17 @@ class _DateNavigator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
             blurRadius: 10,
-            offset: Offset(0, 4),
-            color: Color(0x11000000),
+            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.07),
           ),
         ],
       ),
@@ -767,21 +818,23 @@ class _DateNavigator extends StatelessWidget {
         children: [
           IconButton(
               onPressed: onPrevious,
-              icon: const Icon(Icons.chevron_left)),
+              icon: Icon(Icons.chevron_left,
+                  color: isDark ? Colors.white70 : null)),
           Expanded(
             child: Text(
               label,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF0F172A),
+                color: isDark ? Colors.white : const Color(0xFF0F172A),
               ),
             ),
           ),
           IconButton(
               onPressed: onNext,
-              icon: const Icon(Icons.chevron_right)),
+              icon: Icon(Icons.chevron_right,
+                  color: isDark ? Colors.white70 : null)),
         ],
       ),
     );
@@ -803,18 +856,19 @@ class _SummaryCards extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final adherenceColor =
-        _adherenceColor(data.summary.adherencePercent);
+    final s = S.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final adherenceColor = _adherenceColor(data.summary.adherencePercent);
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
         borderRadius: BorderRadius.circular(22),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
             blurRadius: 12,
-            offset: Offset(0, 4),
-            color: Color(0x12000000),
+            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.07),
           ),
         ],
       ),
@@ -824,12 +878,10 @@ class _SummaryCards extends StatelessWidget {
             Expanded(
               child: _MetricTile(
                 topWidget: Container(
-                  width: 54,
-                  height: 54,
+                  width: 54, height: 54,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border:
-                        Border.all(color: adherenceColor, width: 1.5),
+                    border: Border.all(color: adherenceColor, width: 1.5),
                     color: adherenceColor.withValues(alpha: 0.08),
                   ),
                   child: Center(
@@ -843,11 +895,11 @@ class _SummaryCards extends StatelessWidget {
                     ),
                   ),
                 ),
-                label: 'Adherence',
+                label: s.adherence,
                 labelColor: adherenceColor,
               ),
             ),
-            const _VerticalDivider(),
+            _VerticalDivider(isDark: isDark),
             Expanded(
               child: _MetricTile(
                 topWidget: Text(
@@ -858,11 +910,11 @@ class _SummaryCards extends StatelessWidget {
                     fontSize: 30,
                   ),
                 ),
-                label: 'Taken',
+                label: s.statusTaken,
                 labelColor: const Color(0xFF16A34A),
               ),
             ),
-            const _VerticalDivider(),
+            _VerticalDivider(isDark: isDark),
             Expanded(
               child: _MetricTile(
                 topWidget: Text(
@@ -873,7 +925,7 @@ class _SummaryCards extends StatelessWidget {
                     fontSize: 30,
                   ),
                 ),
-                label: 'Missed',
+                label: s.missed,
                 labelColor: const Color(0xFFEF4444),
               ),
             ),
@@ -898,8 +950,7 @@ class _MetricTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding:
-          const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
+      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -921,14 +972,15 @@ class _MetricTile extends StatelessWidget {
 }
 
 class _VerticalDivider extends StatelessWidget {
-  const _VerticalDivider();
+  final bool isDark;
+  const _VerticalDivider({required this.isDark});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: 1,
       margin: const EdgeInsets.symmetric(vertical: 14),
-      color: const Color(0xFFE2E8F0),
+      color: isDark ? const Color(0xFF3A3A5C) : const Color(0xFFE2E8F0),
     );
   }
 }
@@ -941,30 +993,26 @@ class _ChartSection extends StatelessWidget {
 
   const _ChartSection({required this.type, required this.bars});
 
-  String get _title {
-    switch (type) {
-      case ReportPeriodType.week:
-        return 'Weekly Overview';
-      case ReportPeriodType.month:
-        return 'Monthly Overview';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    final s = S.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final title = type == ReportPeriodType.week
+        ? s.weeklyOverview
+        : s.monthlyOverview;
     final hasData = bars.any((e) => e.totalDue > 0);
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
         borderRadius: BorderRadius.circular(22),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
             blurRadius: 12,
-            offset: Offset(0, 4),
-            color: Color(0x12000000),
+            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.07),
           ),
         ],
       ),
@@ -972,9 +1020,9 @@ class _ChartSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            _title,
-            style: const TextStyle(
-              color: Color(0xFF0F172A),
+            title,
+            style: TextStyle(
+              color: isDark ? Colors.white : const Color(0xFF0F172A),
               fontWeight: FontWeight.w800,
               fontSize: 15,
             ),
@@ -984,10 +1032,10 @@ class _ChartSection extends StatelessWidget {
             Container(
               height: 180,
               alignment: Alignment.center,
-              child: const Text(
-                'No chart data yet.',
+              child: Text(
+                s.noChartData,
                 style: TextStyle(
-                  color: Color(0xFF94A3B8),
+                  color: isDark ? Colors.white38 : const Color(0xFF94A3B8),
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -998,7 +1046,7 @@ class _ChartSection extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  const _ChartYAxis(),
+                  _ChartYAxis(isDark: isDark),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Row(
@@ -1009,6 +1057,7 @@ class _ChartSection extends StatelessWidget {
                         return _ChartBar(
                           label: p.label,
                           value: p.adherence,
+                          isDark: isDark,
                         );
                       }),
                     ),
@@ -1023,49 +1072,40 @@ class _ChartSection extends StatelessWidget {
 }
 
 class _ChartYAxis extends StatelessWidget {
-  const _ChartYAxis();
+  final bool isDark;
+  const _ChartYAxis({required this.isDark});
 
   @override
   Widget build(BuildContext context) {
+    final axisColor =
+        isDark ? Colors.white38 : const Color(0xFF64748B);
     return SizedBox(
       width: 26,
       height: 180,
       child: Stack(
         children: [
           Positioned(
-            left: 18,
-            top: 0,
-            bottom: 0,
-            child:
-                Container(width: 1.2, color: const Color(0xFF64748B)),
+            left: 18, top: 0, bottom: 0,
+            child: Container(width: 1.2, color: axisColor),
           ),
-          const Positioned(
-            left: 0,
-            top: 0,
+          Positioned(
+            left: 0, top: 0,
             child: Text(
               '100',
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF334155),
+                color: isDark ? Colors.white54 : const Color(0xFF334155),
               ),
             ),
           ),
           Positioned(
-            left: 10,
-            top: 14,
-            child: Container(
-                width: 14,
-                height: 1,
-                color: const Color(0xFF64748B)),
+            left: 10, top: 14,
+            child: Container(width: 14, height: 1, color: axisColor),
           ),
           Positioned(
-            left: 10,
-            bottom: 0,
-            child: Container(
-                width: 14,
-                height: 1,
-                color: const Color(0xFF64748B)),
+            left: 10, bottom: 0,
+            child: Container(width: 14, height: 1, color: axisColor),
           ),
         ],
       ),
@@ -1076,8 +1116,13 @@ class _ChartYAxis extends StatelessWidget {
 class _ChartBar extends StatelessWidget {
   final String label;
   final double value;
+  final bool isDark;
 
-  const _ChartBar({required this.label, required this.value});
+  const _ChartBar({
+    required this.label,
+    required this.value,
+    required this.isDark,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1090,14 +1135,14 @@ class _ChartBar extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         Container(
-          width: 20,
-          height: 140,
+          width: 20, height: 140,
           alignment: Alignment.bottomCenter,
           child: Container(
-            width: 20,
-            height: height,
+            width: 20, height: height,
             decoration: BoxDecoration(
-              color: const Color(0xFFDADDE5),
+              color: isDark
+                  ? const Color(0xFF4A4A6A)
+                  : const Color(0xFFDADDE5),
               borderRadius: BorderRadius.circular(4),
             ),
           ),
@@ -1108,10 +1153,10 @@ class _ChartBar extends StatelessWidget {
           child: Text(
             label,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF334155),
+              color: isDark ? Colors.white54 : const Color(0xFF334155),
             ),
             overflow: TextOverflow.ellipsis,
           ),
@@ -1136,30 +1181,32 @@ class _InsightCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
         borderRadius: BorderRadius.circular(999),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
             blurRadius: 10,
-            offset: Offset(0, 4),
-            color: Color(0x12000000),
+            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.07),
           ),
         ],
       ),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: const Color(0xFF334155)),
+          Icon(icon,
+              size: 18,
+              color: isDark ? Colors.white54 : const Color(0xFF334155)),
           const SizedBox(width: 8),
           Expanded(
             child: RichText(
               text: TextSpan(
-                style: const TextStyle(
-                  color: Color(0xFF0F172A),
+                style: TextStyle(
+                  color: isDark ? Colors.white : const Color(0xFF0F172A),
                   fontSize: 12.5,
                   fontWeight: FontWeight.w700,
                 ),
@@ -1167,8 +1214,10 @@ class _InsightCard extends StatelessWidget {
                   TextSpan(text: '$title: '),
                   TextSpan(
                     text: value,
-                    style:
-                        const TextStyle(color: Color(0xFF334155)),
+                    style: TextStyle(
+                        color: isDark
+                            ? Colors.white54
+                            : const Color(0xFF334155)),
                   ),
                 ],
               ),
@@ -1214,22 +1263,25 @@ class _SkeletonReportContentState extends State<_SkeletonReportContent>
     super.dispose();
   }
 
-  Widget _box({
-    double? width,
-    required double height,
-    double radius = 10,
-  }) =>
-      Container(
-        width: width,
-        height: height,
-        decoration: BoxDecoration(
-          color: const Color(0xFFE2E8F0),
-          borderRadius: BorderRadius.circular(radius),
-        ),
-      );
+  Widget _box({double? width, required double height, double radius = 10}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF2A2A4A) : const Color(0xFFE2E8F0),
+        borderRadius: BorderRadius.circular(radius),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+    final divBg =
+        isDark ? const Color(0xFF3A3A5C) : const Color(0xFFE2E8F0);
+
     return AnimatedBuilder(
       animation: _opacity,
       builder: (_, _) => Opacity(
@@ -1237,7 +1289,6 @@ class _SkeletonReportContentState extends State<_SkeletonReportContent>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Patient selector row skeleton
             if (widget.showSelectorRow) ...[
               Row(
                 children: [
@@ -1249,7 +1300,6 @@ class _SkeletonReportContentState extends State<_SkeletonReportContent>
               const SizedBox(height: 14),
             ],
 
-            // Period chips
             Center(
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -1262,19 +1312,11 @@ class _SkeletonReportContentState extends State<_SkeletonReportContent>
             ),
             const SizedBox(height: 16),
 
-            // Date navigator
             Container(
               height: 54,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: cardBg,
                 borderRadius: BorderRadius.circular(16),
-                boxShadow: const [
-                  BoxShadow(
-                    blurRadius: 10,
-                    offset: Offset(0, 4),
-                    color: Color(0x11000000),
-                  ),
-                ],
               ),
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
@@ -1289,23 +1331,12 @@ class _SkeletonReportContentState extends State<_SkeletonReportContent>
             ),
             const SizedBox(height: 18),
 
-            // Summary cards
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(22),
-                boxShadow: const [
-                  BoxShadow(
-                    blurRadius: 12,
-                    offset: Offset(0, 4),
-                    color: Color(0x12000000),
-                  ),
-                ],
-              ),
+                color: cardBg, borderRadius: BorderRadius.circular(22)),
               child: IntrinsicHeight(
                 child: Row(
                   children: [
-                    // Adherence tile
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
@@ -1320,13 +1351,7 @@ class _SkeletonReportContentState extends State<_SkeletonReportContent>
                         ),
                       ),
                     ),
-                    Container(
-                      width: 1,
-                      margin:
-                          const EdgeInsets.symmetric(vertical: 14),
-                      color: const Color(0xFFE2E8F0),
-                    ),
-                    // Taken tile
+                    Container(width: 1, margin: const EdgeInsets.symmetric(vertical: 14), color: divBg),
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
@@ -1341,13 +1366,7 @@ class _SkeletonReportContentState extends State<_SkeletonReportContent>
                         ),
                       ),
                     ),
-                    Container(
-                      width: 1,
-                      margin:
-                          const EdgeInsets.symmetric(vertical: 14),
-                      color: const Color(0xFFE2E8F0),
-                    ),
-                    // Missed tile
+                    Container(width: 1, margin: const EdgeInsets.symmetric(vertical: 14), color: divBg),
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
@@ -1368,21 +1387,11 @@ class _SkeletonReportContentState extends State<_SkeletonReportContent>
             ),
             const SizedBox(height: 18),
 
-            // Chart section
             Container(
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(22),
-                boxShadow: const [
-                  BoxShadow(
-                    blurRadius: 12,
-                    offset: Offset(0, 4),
-                    color: Color(0x12000000),
-                  ),
-                ],
-              ),
+                  color: cardBg, borderRadius: BorderRadius.circular(22)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1393,23 +1402,19 @@ class _SkeletonReportContentState extends State<_SkeletonReportContent>
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [80.0, 120.0, 40.0, 100.0, 60.0, 110.0, 70.0]
                         .map((h) => Column(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.end,
+                              mainAxisAlignment: MainAxisAlignment.end,
                               children: [
                                 Container(
-                                  width: 20,
-                                  height: h,
+                                  width: 20, height: h,
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFE2E8F0),
-                                    borderRadius:
-                                        BorderRadius.circular(4),
+                                    color: isDark
+                                        ? const Color(0xFF2A2A4A)
+                                        : const Color(0xFFE2E8F0),
+                                    borderRadius: BorderRadius.circular(4),
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                _box(
-                                    width: 26,
-                                    height: 10,
-                                    radius: 4),
+                                _box(width: 26, height: 10, radius: 4),
                               ],
                             ))
                         .toList(),
@@ -1419,7 +1424,6 @@ class _SkeletonReportContentState extends State<_SkeletonReportContent>
             ),
             const SizedBox(height: 18),
 
-            // Insight cards
             _box(height: 46, radius: 999),
             const SizedBox(height: 10),
             _box(height: 46, radius: 999),

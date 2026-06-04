@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../services/app_refresh.dart';
 import '../profile.dart';
 import 'doctor_home_tab.dart';
@@ -19,27 +20,16 @@ class DoctorShell extends StatefulWidget {
 class _DoctorShellState extends State<DoctorShell> {
   int _index = 0;
 
-  final List<String> _titles = const [
-    'Home',
-    'Patients',
-    'Notifications',
-    'Reports',
-  ];
-
-  // greeting
-
-  String _greeting() {
+  String _greeting(S s) {
     final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good morning';
-    if (hour < 18) return 'Good afternoon';
-    return 'Good evening';
+    if (hour < 12) return s.goodMorning;
+    if (hour < 18) return s.goodAfternoon;
+    return s.goodEvening;
   }
-
-  // navigation
 
   void _onTap(int i) {
     if (_index == i) {
-      AppRefresh.trigger(); // re-tap current tab → refresh its content
+      AppRefresh.trigger();
       return;
     }
     setState(() => _index = i);
@@ -59,8 +49,6 @@ class _DoctorShellState extends State<DoctorShell> {
     await batch.commit();
   }
 
-  // streams
-
   Stream<DocumentSnapshot<Map<String, dynamic>>> _userStream() {
     final uid = FirebaseAuth.instance.currentUser!.uid;
     return FirebaseFirestore.instance.collection('users').doc(uid).snapshots();
@@ -74,8 +62,6 @@ class _DoctorShellState extends State<DoctorShell> {
         .map((snap) => snap.docs.length);
   }
 
-  // page builder
-
   Widget _buildCurrentPage() {
     switch (_index) {
       case 0: return const DoctorHomeTab();
@@ -86,163 +72,172 @@ class _DoctorShellState extends State<DoctorShell> {
     }
   }
 
-  // build
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF3F6FB),
+    final locale = Localizations.localeOf(context);
+    final isRtl = locale.languageCode == 'ar' || locale.languageCode == 'he';
+    final s = S.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Shell Header
-            StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-              stream: _userStream(),
-              builder: (context, snapshot) {
-                final data = snapshot.data?.data();
+    final titles = [s.home, s.patients, s.notifications, s.reports];
 
-                final username =
-                    (data?['name'] as String?)?.trim().isNotEmpty == true
-                        ? data!['name'] as String
-                        : ((data?['username'] as String?)
-                                    ?.trim()
-                                    .isNotEmpty ==
-                                true
-                            ? data!['username'] as String
-                            : (FirebaseAuth.instance.currentUser?.displayName
-                                        ?.trim()
-                                        .isNotEmpty ==
-                                    true
-                                ? FirebaseAuth
-                                    .instance.currentUser!.displayName!
-                                : 'Doctor'));
+    return Directionality(
+      textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
 
-                return Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-                  decoration:
-                      const BoxDecoration(color: Color(0xFF1E3A8A)),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${_greeting()}, $username',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
+        body: SafeArea(
+          child: Column(
+            children: [
+              // Shell Header
+              StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                stream: _userStream(),
+                builder: (context, snapshot) {
+                  final data = snapshot.data?.data();
+
+                  final username =
+                      (data?['name'] as String?)?.trim().isNotEmpty == true
+                          ? data!['name'] as String
+                          : ((data?['username'] as String?)
+                                          ?.trim()
+                                          .isNotEmpty ==
+                                      true
+                                  ? data!['username'] as String
+                                  : (FirebaseAuth.instance.currentUser
+                                                  ?.displayName
+                                                  ?.trim()
+                                                  .isNotEmpty ==
+                                              true
+                                          ? FirebaseAuth
+                                              .instance.currentUser!.displayName!
+                                          : 'Doctor'));
+
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+                    decoration: const BoxDecoration(color: Color(0xFF1E3A8A)),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${_greeting(s)}, $username',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _titles[_index],
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
+                              const SizedBox(height: 4),
+                              Text(
+                                titles[_index],
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      InkWell(
-                        borderRadius: BorderRadius.circular(28),
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const ProfileScreen()),
-                        ),
-                        child: Container(
-                          width: 54,
-                          height: 54,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white.withValues(alpha: .12),
-                            border: Border.all(
-                                color: Colors.white24, width: 1),
-                          ),
-                          child: const Icon(
-                            Icons.person_outline,
-                            color: Colors.white,
-                            size: 28,
+                            ],
                           ),
                         ),
+                        InkWell(
+                          borderRadius: BorderRadius.circular(28),
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const ProfileScreen()),
+                          ),
+                          child: Container(
+                            width: 54,
+                            height: 54,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white.withValues(alpha: .12),
+                              border:
+                                  Border.all(color: Colors.white24, width: 1),
+                            ),
+                            child: const Icon(
+                              Icons.person_outline,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+
+              // Page content
+              Expanded(child: _buildCurrentPage()),
+            ],
+          ),
+        ),
+
+        // Bottom nav with badge
+        bottomNavigationBar: StreamBuilder<int>(
+          stream: _unreadStream(),
+          builder: (context, badgeSnap) {
+            final badge = badgeSnap.data ?? 0;
+
+            return SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: [
+                      BoxShadow(
+                        blurRadius: 18,
+                        offset: const Offset(0, 6),
+                        color: Colors.black.withValues(
+                            alpha: isDark ? 0.35 : 0.08),
                       ),
                     ],
                   ),
-                );
-              },
-            ),
-
-            // Page content
-            Expanded(child: _buildCurrentPage()),
-          ],
-        ),
-      ),
-
-      // Bottom nav with badge
-      bottomNavigationBar: StreamBuilder<int>(
-        stream: _unreadStream(),
-        builder: (context, badgeSnap) {
-          final badge = badgeSnap.data ?? 0;
-
-          return SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(28),
-                  boxShadow: const [
-                    BoxShadow(
-                      blurRadius: 18,
-                      offset: Offset(0, 6),
-                      color: Color(0x14000000),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 8, vertical: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _NavItem(
-                      icon: Icons.home_outlined,
-                      selectedIcon: Icons.home,
-                      selected: _index == 0,
-                      onTap: () => _onTap(0),
-                    ),
-                    _NavItem(
-                      icon: Icons.people_outline,
-                      selectedIcon: Icons.people,
-                      selected: _index == 1,
-                      onTap: () => _onTap(1),
-                    ),
-                    _NavItem(
-                      icon: Icons.notifications_none,
-                      selectedIcon: Icons.notifications,
-                      selected: _index == 2,
-                      badge: badge,
-                      onTap: () => _onTap(2),
-                    ),
-                    _NavItem(
-                      icon: Icons.bar_chart_outlined,
-                      selectedIcon: Icons.bar_chart,
-                      selected: _index == 3,
-                      onTap: () => _onTap(3),
-                    ),
-                  ],
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _NavItem(
+                        icon: Icons.home_outlined,
+                        selectedIcon: Icons.home,
+                        selected: _index == 0,
+                        onTap: () => _onTap(0),
+                      ),
+                      _NavItem(
+                        icon: Icons.people_outline,
+                        selectedIcon: Icons.people,
+                        selected: _index == 1,
+                        onTap: () => _onTap(1),
+                      ),
+                      _NavItem(
+                        icon: Icons.notifications_none,
+                        selectedIcon: Icons.notifications,
+                        selected: _index == 2,
+                        badge: badge,
+                        onTap: () => _onTap(2),
+                      ),
+                      _NavItem(
+                        icon: Icons.bar_chart_outlined,
+                        selectedIcon: Icons.bar_chart,
+                        selected: _index == 3,
+                        onTap: () => _onTap(3),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -267,8 +262,10 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     const activeColor = Color(0xFF1E3A8A);
-    const inactiveColor = Color(0xFF64748B);
+    final inactiveColor =
+        isDark ? Colors.white38 : const Color(0xFF64748B);
     final iconColor = selected ? activeColor : inactiveColor;
 
     return InkWell(
@@ -277,10 +274,14 @@ class _NavItem extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color:
-              selected ? const Color(0xFFE8EEF9) : Colors.transparent,
+          color: selected
+              ? (isDark
+                  ? const Color(0xFF2A2A4A)
+                  : const Color(0xFFE8EEF9))
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(22),
         ),
         child: Stack(

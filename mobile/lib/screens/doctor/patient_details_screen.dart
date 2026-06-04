@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../models/medication.dart';
 import '../patient/medication_form_screen.dart';
 import 'send_message_screen.dart';
@@ -73,8 +74,8 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
 
   String _formatDate(DateTime d) => DateFormat('d MMM').format(d);
 
-  String _formatDays(List<String> days) {
-    if (days.length >= 7) return 'Everyday';
+  String _formatDays(List<String> days, S s) {
+    if (days.length >= 7) return s.everyday;
     if (days.isEmpty) return '—';
     return days.join(' • ');
   }
@@ -228,28 +229,27 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
   }
 
   Future<void> _deletePatient() async {
+    final s = S.of(context);
     final name = _data?.name ?? widget.patientName;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20)),
-        title: const Text('Delete Patient',
-            style: TextStyle(fontWeight: FontWeight.w800)),
-        content: Text(
-          'Are you sure you want to remove "$name" from the system?\n\nThis action cannot be undone.',
-        ),
+        title: Text(s.deletePatientTitle,
+            style: const TextStyle(fontWeight: FontWeight.w800)),
+        content: Text(s.deletePatientWithUndo(name)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(s.cancel),
           ),
           TextButton(
             style: TextButton.styleFrom(
                 foregroundColor: const Color(0xFFEF4444)),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete',
-                style: TextStyle(fontWeight: FontWeight.w700)),
+            child: Text(s.delete,
+                style: const TextStyle(fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -285,7 +285,7 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
   }
 
   void _viewReport() => ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('View Report — coming soon')),
+        SnackBar(content: Text(S.of(context).viewReport)),
       );
 
   // build
@@ -359,6 +359,7 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
   }
 
   Widget _buildCardContent(BuildContext context) {
+    final s = S.of(context);
     final displayName = _data?.name ?? widget.patientName;
     final adherencePct = _data != null
         ? '${(_data!.adherence * 100).round()}%'
@@ -370,7 +371,7 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
       top: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [          
+        children: [
 
           // Header
           Padding(
@@ -422,7 +423,7 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '$adherencePct Adherence',
+                  '$adherencePct ${s.adherence}',
                   style: const TextStyle(
                     color: Color(0xFF22C55E),
                     fontSize: 17,
@@ -437,8 +438,8 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
                     const SizedBox(width: 6),
                     Text(
                       _loading
-                          ? 'Loading...'
-                          : '$medCount Medication${medCount == 1 ? '' : 's'}',
+                          ? s.loadingLabel
+                          : s.nMedications(medCount),
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 14,
@@ -452,7 +453,7 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
           ),
 
           // Medications list
-          Expanded(child: _buildContent()),
+          Expanded(child: _buildContent(s)),
 
           // Bottom bar
           Container(
@@ -462,18 +463,18 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
               children: [
                 if (hasMore)
                   _BottomAction(
-                    label: 'View more',
+                    label: s.viewMore,
                     onTap: () => setState(() => _showAll = true),
                   )
                 else if (_showAll && medCount > _cardLimit)
                   _BottomAction(
-                    label: 'View less',
+                    label: s.viewLess,
                     onTap: () => setState(() => _showAll = false),
                   )
                 else
                   const SizedBox.shrink(),
                 const Spacer(),
-                _BottomAction(label: 'View Report', onTap: _viewReport),
+                _BottomAction(label: s.viewReport, onTap: _viewReport),
               ],
             ),
           ),
@@ -482,7 +483,7 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
     );
   }
 
-  Widget _buildContent() {
+  Widget _buildContent(S s) {
     if (_error != null) {
       return Center(
         child: Padding(
@@ -509,9 +510,9 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
             const Icon(Icons.medication_outlined,
                 color: Colors.white24, size: 56),
             const SizedBox(height: 14),
-            const Text(
-              'No medications yet.',
-              style: TextStyle(
+            Text(
+              s.noMedicationsYet,
+              style: const TextStyle(
                   color: Colors.white54,
                   fontSize: 16,
                   fontWeight: FontWeight.w600),
@@ -520,7 +521,7 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
             ElevatedButton.icon(
               onPressed: _addMedication,
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('Add Medication'),
+              label: Text(s.addMedication),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF3B82F6),
                 foregroundColor: Colors.white,
@@ -545,7 +546,7 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
         medActivity: visible[i],
         onEdit: () => _editMedication(visible[i].med),
         formatDate: _formatDate,
-        formatDays: _formatDays,
+        formatDays: (days) => _formatDays(days, s),
         formatTimes: _formatTimes,
       ),
     );
@@ -661,36 +662,44 @@ class _MedCard extends StatelessWidget {
             const SizedBox(height: 12),
             const Divider(height: 1, color: Color(0xFFF1F5F9)),
             const SizedBox(height: 10),
-            const Row(
-              children: [
-                Icon(Icons.history,
-                    size: 14, color: Color(0xFF64748B)),
-                SizedBox(width: 6),
-                Text(
-                  'Recently Activity',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF334155),
+            Builder(builder: (context) {
+              final s = S.of(context);
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.history,
+                          size: 14, color: Color(0xFF64748B)),
+                      const SizedBox(width: 6),
+                      Text(
+                        s.recentActivity,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF334155),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            ...activity.map((e) {
-              final isTaken = e.status == 'taken';
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(
-                  '${formatDate(e.date)} - ${isTaken ? 'Taken' : 'Skipped'}',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: isTaken
-                        ? const Color(0xFF22C55E)
-                        : const Color(0xFFEF4444),
-                  ),
-                ),
+                  const SizedBox(height: 8),
+                  ...activity.map((e) {
+                    final isTaken = e.status == 'taken';
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        '${formatDate(e.date)} - ${isTaken ? s.statusTaken : s.statusSkipped}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: isTaken
+                              ? const Color(0xFF22C55E)
+                              : const Color(0xFFEF4444),
+                        ),
+                      ),
+                    );
+                  }),
+                ],
               );
             }),
           ],

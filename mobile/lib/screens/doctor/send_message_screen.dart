@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../l10n/app_strings.dart';
+
 class SendMessageScreen extends StatefulWidget {
   final String? prefilledPatientId;
   final String? prefilledPatientName;
@@ -36,7 +38,6 @@ class _SendMessageScreenState extends State<SendMessageScreen> {
   List<String>              _medications = [];
 
   static const _blue = Color(0xFF1E3A8A);
-  static const _bg   = Color(0xFFF3F6FB);
 
   @override
   void initState() {
@@ -58,15 +59,11 @@ class _SendMessageScreenState extends State<SendMessageScreen> {
     super.dispose();
   }
 
-  // Helpers
-
   bool get _hasChanges =>
       _titleCtrl.text.isNotEmpty ||
       _messageCtrl.text != (widget.prefilledMessage ?? '') ||
       _selectedPatientId != widget.prefilledPatientId ||
       _selectedMedication != null;
-
-  // Data fetching
 
   Future<void> _fetchPatients() async {
     final results = await Future.wait([
@@ -120,7 +117,7 @@ class _SendMessageScreenState extends State<SendMessageScreen> {
           .toSet()
           .toList()
         ..sort();
-      if (mounted){ 
+      if (mounted) {
         setState(() {
           _medications         = names;
           _fetchingMedications = false;
@@ -131,25 +128,23 @@ class _SendMessageScreenState extends State<SendMessageScreen> {
     }
   }
 
-  // Actions
-
   Future<void> _handleCancel() async {
     if (!_hasChanges) { Navigator.pop(context); return; }
+    final s = S.of(context);
 
     final discard = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20)),
-        title: const Text('Discard changes?',
-            style: TextStyle(fontWeight: FontWeight.w800)),
-        content: const Text(
-            'Any information you entered will not be saved.'),
+        title: Text(s.discardChanges,
+            style: const TextStyle(fontWeight: FontWeight.w800)),
+        content: Text(s.discardMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Keep editing',
-                style: TextStyle(color: _blue)),
+            child: Text(s.keepEditing,
+                style: const TextStyle(color: _blue)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -159,7 +154,7 @@ class _SendMessageScreenState extends State<SendMessageScreen> {
                   borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Discard'),
+            child: Text(s.discard),
           ),
         ],
       ),
@@ -169,9 +164,11 @@ class _SendMessageScreenState extends State<SendMessageScreen> {
   }
 
   Future<void> _send() async {
+    final s = S.of(context);
+
     if (_selectedPatientId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a patient.')),
+        SnackBar(content: Text(s.pleaseSelectPatient)),
       );
       return;
     }
@@ -179,7 +176,7 @@ class _SendMessageScreenState extends State<SendMessageScreen> {
     final msg = _messageCtrl.text.trim();
     if (msg.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Message cannot be empty.')),
+        SnackBar(content: Text(s.messageCantBeEmpty)),
       );
       return;
     }
@@ -195,8 +192,8 @@ class _SendMessageScreenState extends State<SendMessageScreen> {
       final title = _titleCtrl.text.trim().isNotEmpty
           ? _titleCtrl.text.trim()
           : (widget.isReminder
-              ? 'Reminder from your doctor'
-              : 'Message from your doctor');
+              ? s.reminderFromDoctor
+              : s.messageFromDoctor);
 
       await db.collection('doctor_messages').add({
         'doctorId':    uid,
@@ -227,8 +224,7 @@ class _SendMessageScreenState extends State<SendMessageScreen> {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-              'Message sent to ${_selectedPatientName ?? 'patient'}.'),
+          content: Text(s.messageSentTo(_selectedPatientName ?? '')),
         ),
       );
     } catch (e) {
@@ -242,12 +238,13 @@ class _SendMessageScreenState extends State<SendMessageScreen> {
     }
   }
 
-  // Build
-
   @override
   Widget build(BuildContext context) {
+    final s = S.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
@@ -268,7 +265,9 @@ class _SendMessageScreenState extends State<SendMessageScreen> {
                   Expanded(
                     child: Center(
                       child: Text(
-                        widget.isReminder ? 'Send Reminder' : 'Send Message',
+                        widget.isReminder
+                            ? s.sendReminderTitle
+                            : s.sendMessageTitle,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 20,
@@ -278,8 +277,7 @@ class _SendMessageScreenState extends State<SendMessageScreen> {
                     ),
                   ),
                   Container(
-                    width: 46,
-                    height: 46,
+                    width: 46, height: 46,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: Colors.white.withValues(alpha: 0.12),
@@ -301,86 +299,94 @@ class _SendMessageScreenState extends State<SendMessageScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Patient selector chip
-                          _buildPatientChip(),
+                          _buildPatientChip(s, isDark),
                           const SizedBox(height: 20),
 
-                          // Title
-                          const _Label('Title'),
+                          _Label(s.titleLabel, isDark: isDark),
                           const SizedBox(height: 8),
                           _FieldBox(
+                            isDark: isDark,
                             child: TextField(
                               controller: _titleCtrl,
-                              decoration: const InputDecoration(
+                              decoration: InputDecoration(
                                 border: InputBorder.none,
-                                contentPadding: EdgeInsets.symmetric(
+                                contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 16, vertical: 14),
                                 hintText: 'e.g. Missed Dose',
-                                hintStyle:
-                                    TextStyle(color: Color(0xFF94A3B8)),
+                                hintStyle: TextStyle(
+                                    color: isDark
+                                        ? Colors.white38
+                                        : const Color(0xFF94A3B8)),
                               ),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF1F2937),
+                                color: isDark
+                                    ? Colors.white
+                                    : const Color(0xFF1F2937),
                               ),
                             ),
                           ),
                           const SizedBox(height: 20),
 
-                          // Medication (optional)
-                          const _Label('Select Medication (optional)'),
+                          _Label(s.selectMedOptional, isDark: isDark),
                           const SizedBox(height: 8),
-                          _buildMedicationDropdown(),
+                          _buildMedicationDropdown(s, isDark),
                           const SizedBox(height: 20),
 
-                          // Message
-                          const _Label('Message'),
+                          _Label(s.messageField, isDark: isDark),
                           const SizedBox(height: 8),
                           _FieldBox(
+                            isDark: isDark,
                             child: TextField(
                               controller: _messageCtrl,
                               minLines: 5,
                               maxLines: 10,
-                              decoration: const InputDecoration(
+                              decoration: InputDecoration(
                                 border: InputBorder.none,
-                                contentPadding: EdgeInsets.all(16),
+                                contentPadding: const EdgeInsets.all(16),
                                 hintText:
                                     'Please pay attention to Vitamin D dosage...',
-                                hintStyle:
-                                    TextStyle(color: Color(0xFF94A3B8)),
+                                hintStyle: TextStyle(
+                                    color: isDark
+                                        ? Colors.white38
+                                        : const Color(0xFF94A3B8)),
                               ),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 15,
-                                color: Color(0xFF1F2937),
+                                color: isDark
+                                    ? Colors.white
+                                    : const Color(0xFF1F2937),
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
                           ),
                           const SizedBox(height: 28),
 
-                          // Cancel + Send
                           Row(
                             children: [
                               Expanded(
                                 child: OutlinedButton(
-                                  onPressed:
-                                      _loading ? null : _handleCancel,
+                                  onPressed: _loading ? null : _handleCancel,
                                   style: OutlinedButton.styleFrom(
-                                    side: const BorderSide(
-                                        color: Color(0xFFCBD5E1)),
+                                    side: BorderSide(
+                                        color: isDark
+                                            ? Colors.white24
+                                            : const Color(0xFFCBD5E1)),
                                     padding: const EdgeInsets.symmetric(
                                         vertical: 15),
                                     shape: RoundedRectangleBorder(
                                         borderRadius:
                                             BorderRadius.circular(14)),
                                   ),
-                                  child: const Text(
-                                    'Cancel',
+                                  child: Text(
+                                    s.cancel,
                                     style: TextStyle(
                                       fontWeight: FontWeight.w700,
                                       fontSize: 15,
-                                      color: Color(0xFF1F2937),
+                                      color: isDark
+                                          ? Colors.white70
+                                          : const Color(0xFF1F2937),
                                     ),
                                   ),
                                 ),
@@ -403,15 +409,14 @@ class _SendMessageScreenState extends State<SendMessageScreen> {
                                   ),
                                   child: _loading
                                       ? const SizedBox(
-                                          width: 20,
-                                          height: 20,
+                                          width: 20, height: 20,
                                           child: CircularProgressIndicator(
                                               color: Colors.white,
                                               strokeWidth: 2),
                                         )
-                                      : const Text(
-                                          'Send',
-                                          style: TextStyle(
+                                      : Text(
+                                          s.sendBtn,
+                                          style: const TextStyle(
                                               fontSize: 15,
                                               fontWeight: FontWeight.w800),
                                         ),
@@ -429,63 +434,64 @@ class _SendMessageScreenState extends State<SendMessageScreen> {
     );
   }
 
-  // Patient chip
-
-  Widget _buildPatientChip() {
+  Widget _buildPatientChip(S s, bool isDark) {
     return GestureDetector(
-      onTap: _showPatientPicker,
+      onTap: () => _showPatientPicker(s, isDark),
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
           borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-          boxShadow: const [
+          border: Border.all(
+              color: isDark
+                  ? const Color(0xFF3A3A5C)
+                  : const Color(0xFFE2E8F0)),
+          boxShadow: [
             BoxShadow(
                 blurRadius: 6,
-                offset: Offset(0, 2),
-                color: Color(0x08000000)),
+                offset: const Offset(0, 2),
+                color: Colors.black
+                    .withValues(alpha: isDark ? 0.2 : 0.03)),
           ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 28,
-              height: 28,
+              width: 28, height: 28,
               decoration: BoxDecoration(
                 color: _blue.withValues(alpha: 0.10),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.person_outline,
-                  color: _blue, size: 16),
+              child: const Icon(Icons.person_outline, color: _blue, size: 16),
             ),
             const SizedBox(width: 8),
             Text(
               _selectedPatientName != null
-                  ? 'To $_selectedPatientName'
-                  : 'Select patient',
+                  ? s.toPatientName(_selectedPatientName!)
+                  : s.selectPatientHint,
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
                 color: _selectedPatientName != null
-                    ? const Color(0xFF1F2937)
-                    : const Color(0xFF94A3B8),
+                    ? (isDark ? Colors.white : const Color(0xFF1F2937))
+                    : (isDark ? Colors.white38 : const Color(0xFF94A3B8)),
               ),
             ),
             const SizedBox(width: 6),
-            const Icon(Icons.keyboard_arrow_down_rounded,
-                color: Color(0xFF94A3B8), size: 18),
+            Icon(Icons.keyboard_arrow_down_rounded,
+                color: isDark ? Colors.white38 : const Color(0xFF94A3B8),
+                size: 18),
           ],
         ),
       ),
     );
   }
 
-  void _showPatientPicker() {
+  void _showPatientPicker(S s, bool isDark) {
     showModalBottomSheet(
       context: context,
+      backgroundColor: isDark ? const Color(0xFF1E1E2E) : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -505,26 +511,26 @@ class _SendMessageScreenState extends State<SendMessageScreen> {
     );
   }
 
-  // Medication dropdown
-
-  Widget _buildMedicationDropdown() {
+  Widget _buildMedicationDropdown(S s, bool isDark) {
     if (_fetchingMedications) {
       return _FieldBox(
+        isDark: isDark,
         child: Padding(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             children: [
               SizedBox(
-                width: 16,
-                height: 16,
+                width: 16, height: 16,
                 child: CircularProgressIndicator(
                     strokeWidth: 2,
                     color: _blue.withValues(alpha: 0.6)),
               ),
               const SizedBox(width: 10),
-              const Text('Loading medications...',
-                  style: TextStyle(color: Color(0xFF94A3B8))),
+              Text(s.loadingMedications,
+                  style: TextStyle(
+                      color: isDark
+                          ? Colors.white38
+                          : const Color(0xFF94A3B8))),
             ],
           ),
         ),
@@ -532,33 +538,42 @@ class _SendMessageScreenState extends State<SendMessageScreen> {
     }
 
     return _FieldBox(
+      isDark: isDark,
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String?>(
           value: _selectedMedication,
           isExpanded: true,
-          hint: const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
+          dropdownColor: isDark ? const Color(0xFF1E1E2E) : null,
+          hint: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text('None',
-                style: TextStyle(color: Color(0xFF94A3B8))),
+                style: TextStyle(
+                    color: isDark
+                        ? Colors.white38
+                        : const Color(0xFF94A3B8))),
           ),
           items: [
-            const DropdownMenuItem<String?>(
+            DropdownMenuItem<String?>(
               value: null,
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Text('None',
-                    style: TextStyle(color: Color(0xFF94A3B8))),
+                    style: TextStyle(
+                        color: isDark
+                            ? Colors.white38
+                            : const Color(0xFF94A3B8))),
               ),
             ),
             ..._medications.map((m) => DropdownMenuItem<String?>(
                   value: m,
                   child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Text(m,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF1F2937))),
+                            color: isDark
+                                ? Colors.white
+                                : const Color(0xFF1F2937))),
                   ),
                 )),
           ],
@@ -586,22 +601,26 @@ class _PatientPickerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = S.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         const SizedBox(height: 12),
         Container(
-          width: 40,
-          height: 4,
+          width: 40, height: 4,
           decoration: BoxDecoration(
-            color: Colors.grey.shade300,
+            color: isDark ? Colors.white24 : Colors.grey.shade300,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
         const SizedBox(height: 16),
-        const Text('Select Patient',
-            style:
-                TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+        Text(s.selectPatient,
+            style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: isDark ? Colors.white : null)),
         const SizedBox(height: 8),
         Flexible(
           child: ListView.builder(
@@ -626,13 +645,12 @@ class _PatientPickerSheet extends StatelessWidget {
                 title: Text(
                   p['name']!,
                   style: TextStyle(
-                      fontWeight: selected
-                          ? FontWeight.w800
-                          : FontWeight.w600),
+                      fontWeight:
+                          selected ? FontWeight.w800 : FontWeight.w600,
+                      color: isDark ? Colors.white : null),
                 ),
                 trailing: selected
-                    ? const Icon(Icons.check,
-                        color: Color(0xFF1E3A8A))
+                    ? const Icon(Icons.check, color: Color(0xFF1E3A8A))
                     : null,
                 onTap: () => onSelect(p['id']!, p['name']!),
               );
@@ -649,16 +667,17 @@ class _PatientPickerSheet extends StatelessWidget {
 
 class _Label extends StatelessWidget {
   final String text;
-  const _Label(this.text);
+  final bool isDark;
+  const _Label(this.text, {required this.isDark});
 
   @override
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.w700,
-        color: Color(0xFF334155),
+        color: isDark ? Colors.white70 : const Color(0xFF334155),
       ),
     );
   }
@@ -666,20 +685,25 @@ class _Label extends StatelessWidget {
 
 class _FieldBox extends StatelessWidget {
   final Widget child;
-  const _FieldBox({required this.child});
+  final bool isDark;
+  const _FieldBox({required this.child, required this.isDark});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: const [
+        border: Border.all(
+            color: isDark
+                ? const Color(0xFF3A3A5C)
+                : const Color(0xFFE2E8F0)),
+        boxShadow: [
           BoxShadow(
               blurRadius: 6,
-              offset: Offset(0, 2),
-              color: Color(0x08000000)),
+              offset: const Offset(0, 2),
+              color: Colors.black
+                  .withValues(alpha: isDark ? 0.2 : 0.03)),
         ],
       ),
       child: child,
