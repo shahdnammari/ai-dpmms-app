@@ -711,14 +711,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           actions: [
             if (!_isLoading && !_isEditMode) ...[
               IconButton(
-                icon: const Icon(Icons.settings_outlined, color: _primary),
+                icon: Icon(Icons.settings_outlined, 
+                color: Theme.of(context).colorScheme.onSurface,),
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const SettingsScreen()),
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.edit_outlined, color: _primary),
+                icon: Icon(Icons.edit_outlined, 
+                color: Theme.of(context).colorScheme.onSurface,),
                 onPressed: _enterEditMode,
               ),
             ],
@@ -739,7 +741,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             height: 108,
                             decoration: const BoxDecoration(
                               shape: BoxShape.circle,
-                              color: _primary,
+                              color: Color(0xFF0D1B4C),
                               boxShadow: [
                                 BoxShadow(
                                   color: Colors.black12,
