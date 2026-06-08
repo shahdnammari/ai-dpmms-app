@@ -214,12 +214,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
         child: FutureBuilder<ReportResult>(
           future: _reportFuture,
           builder: (context, snap) {
-            if (snap.connectionState == ConnectionState.waiting &&
-                !snap.hasData) {
-              return const Center(child: CircularProgressIndicator());
-            }
+            final isLoading = snap.connectionState == ConnectionState.waiting;
+            final data = snap.data;
 
-            if (snap.hasError) {
+            if (snap.hasError && data == null) {
               return RefreshIndicator(
                 onRefresh: _onRefresh,
                 child: ListView(
@@ -233,29 +231,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                           color: Colors.red,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            final data = snap.data;
-            if (data == null) {
-              return RefreshIndicator(
-                onRefresh: _onRefresh,
-                child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  children: [
-                    const SizedBox(height: 180),
-                    Center(
-                      child: Text(
-                        s.noReportData,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF64748B),
                         ),
                       ),
                     ),
@@ -284,7 +259,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         ),
                         const SizedBox(height: 40, width: 10),
                         OutlinedButton.icon(
-                          onPressed: () => _showExportSheet(data),
+                          onPressed: data != null ? () => _showExportSheet(data) : null,
                           icon: const Icon(Icons.ios_share_outlined, size: 18),
                           label: Text(s.exportButton),
                           style: OutlinedButton.styleFrom(
@@ -305,23 +280,40 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       onNext: _goNext,
                     ),
                     const SizedBox(height: 18),
-                    _SummaryCards(data: data, s: s),
-                    const SizedBox(height: 18),
-                    _ChartSection(type: _selectedType, bars: data.bars, s: s),
-                    const SizedBox(height: 18),
-                    _InsightCard(
-                      icon: Icons.workspace_premium_outlined,
-                      title: _selectedType == ReportPeriodType.week
-                          ? s.bestDay
-                          : s.bestWeek,
-                      value: data.insights.bestLabel,
-                    ),
-                    const SizedBox(height: 10),
-                    _InsightCard(
-                      icon: Icons.warning_amber_rounded,
-                      title: s.mostMissed,
-                      value: data.insights.mostMissedMedication,
-                    ),
+                    if (isLoading)
+                      const _SkeletonReportData()
+                    else if (data != null) ...[
+                      _SummaryCards(data: data, s: s),
+                      const SizedBox(height: 18),
+                      _ChartSection(type: _selectedType, bars: data.bars, s: s),
+                      const SizedBox(height: 18),
+                      _InsightCard(
+                        icon: Icons.workspace_premium_outlined,
+                        title: _selectedType == ReportPeriodType.week
+                            ? s.bestDay
+                            : s.bestWeek,
+                        value: data.insights.bestLabel,
+                      ),
+                      const SizedBox(height: 10),
+                      _InsightCard(
+                        icon: Icons.warning_amber_rounded,
+                        title: s.mostMissed,
+                        value: data.insights.mostMissedMedication,
+                      ),
+                    ] else
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 60),
+                          child: Text(
+                            s.noReportData,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -898,6 +890,232 @@ class _InsightCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// Skeleton loading — data sections only (summary cards, chart, insights)
+
+class _SkeletonReportData extends StatefulWidget {
+  const _SkeletonReportData();
+
+  @override
+  State<_SkeletonReportData> createState() => _SkeletonReportDataState();
+}
+
+class _SkeletonReportDataState extends State<_SkeletonReportData>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _opacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 900))
+      ..repeat(reverse: true);
+    _opacity = Tween(begin: 0.35, end: 0.75).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Widget _box({double? width, required double height, double radius = 10}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF2A2A4A) : const Color(0xFFE2E8F0),
+        borderRadius: BorderRadius.circular(radius),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = Theme.of(context).colorScheme.surface;
+
+    return AnimatedBuilder(
+      animation: _opacity,
+      builder: (_, _) => Opacity(
+        opacity: _opacity.value,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Summary cards — mirrors _SummaryCards (container + 3 metric tiles)
+            Container(
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: IntrinsicHeight(
+                child: Row(
+                  children: [
+                    // Adherence — circle placeholder
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 18, horizontal: 8),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              width: 54,
+                              height: 54,
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? const Color(0xFF2A2A4A)
+                                    : const Color(0xFFE2E8F0),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            _box(width: 70, height: 14, radius: 6),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const _VerticalDivider(),
+                    // Taken — large number placeholder
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 18, horizontal: 8),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _box(width: 40, height: 36, radius: 8),
+                            const SizedBox(height: 8),
+                            _box(width: 56, height: 14, radius: 6),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const _VerticalDivider(),
+                    // Missed — large number placeholder
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 18, horizontal: 8),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _box(width: 40, height: 36, radius: 8),
+                            const SizedBox(height: 8),
+                            _box(width: 56, height: 14, radius: 6),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            // Chart section — mirrors _ChartSection container
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _box(width: 120, height: 14, radius: 7),
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    height: 210,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        // Y-axis placeholder
+                        SizedBox(
+                          width: 26,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              _box(width: 20, height: 10, radius: 4),
+                              _box(width: 20, height: 10, radius: 4),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: List.generate(7, (i) {
+                              const heights = [
+                                90.0, 130.0, 70.0, 160.0, 110.0, 80.0, 140.0
+                              ];
+                              return Column(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  _box(
+                                      width: 22,
+                                      height: heights[i],
+                                      radius: 6),
+                                  const SizedBox(height: 4),
+                                  _box(width: 18, height: 10, radius: 4),
+                                ],
+                              );
+                            }),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+            // Best day insight — mirrors _InsightCard pill shape
+            Container(
+              width: double.infinity,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Row(
+                children: [
+                  _box(width: 18, height: 18, radius: 4),
+                  const SizedBox(width: 8),
+                  _box(width: 160, height: 12, radius: 6),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            // Most missed insight
+            Container(
+              width: double.infinity,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Row(
+                children: [
+                  _box(width: 18, height: 18, radius: 4),
+                  const SizedBox(width: 8),
+                  _box(width: 140, height: 12, radius: 6),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -114,7 +114,7 @@ class NotificationsScreenState extends State<NotificationsScreen> {
               );
             }
             if (!snap.hasData) {
-              return const Center(child: CircularProgressIndicator());
+              return const _SkeletonNotifications();
             }
 
             final docs = snap.data!.docs;
@@ -339,8 +339,7 @@ class NotificationsScreenState extends State<NotificationsScreen> {
                       future: medFuture,
                       builder: (context, snap) {
                         if (snap.connectionState == ConnectionState.waiting) {
-                          return const Center(
-                              child: CircularProgressIndicator(strokeWidth: 2));
+                          return const _SkeletonMedDetail();
                         }
                         final med = snap.data;
                         if (med == null) {
@@ -514,6 +513,197 @@ class NotificationsScreenState extends State<NotificationsScreen> {
           medication: med,
           uid: FirebaseAuth.instance.currentUser!.uid,
           effectiveDate: DateTime.now(),
+        ),
+      ),
+    );
+  }
+}
+
+// Skeleton loading
+
+class _SkeletonNotifications extends StatefulWidget {
+  const _SkeletonNotifications();
+
+  @override
+  State<_SkeletonNotifications> createState() => _SkeletonNotificationsState();
+}
+
+class _SkeletonNotificationsState extends State<_SkeletonNotifications>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _opacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 900))
+      ..repeat(reverse: true);
+    _opacity = Tween(begin: 0.4, end: 0.85).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Widget _box({double? width, required double height, double radius = 10}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF2A2A4A) : const Color(0xFFE2E8F0),
+        borderRadius: BorderRadius.circular(radius),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+
+    return AnimatedBuilder(
+      animation: _opacity,
+      builder: (_, _) => Opacity(
+        opacity: _opacity.value,
+        child: ListView.separated(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+          itemCount: 5,
+          separatorBuilder: (_, _) => const SizedBox(height: 12),
+          itemBuilder: (_, _) => Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xFF2A2A4A)
+                        : const Color(0xFFE2E8F0),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(child: _box(height: 13, radius: 7)),
+                          const SizedBox(width: 12),
+                          _box(width: 44, height: 10, radius: 5),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      _box(height: 10, width: 200, radius: 6),
+                      const SizedBox(height: 5),
+                      _box(height: 10, width: 140, radius: 6),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SkeletonMedDetail extends StatefulWidget {
+  const _SkeletonMedDetail();
+
+  @override
+  State<_SkeletonMedDetail> createState() => _SkeletonMedDetailState();
+}
+
+class _SkeletonMedDetailState extends State<_SkeletonMedDetail>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _opacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 900))
+      ..repeat(reverse: true);
+    _opacity = Tween(begin: 0.4, end: 0.85).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Widget _box({double? width, required double height, double radius = 8}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF2A2A4A) : const Color(0xFFE2E8F0),
+        borderRadius: BorderRadius.circular(radius),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return AnimatedBuilder(
+      animation: _opacity,
+      builder: (_, _) => Opacity(
+        opacity: _opacity.value,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: List.generate(
+            3,
+            (_) => Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? const Color(0xFF2A2A4A)
+                          : const Color(0xFFE2E8F0),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _box(height: 12, width: 140, radius: 6),
+                        const SizedBox(height: 6),
+                        _box(height: 10, width: 90, radius: 5),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );

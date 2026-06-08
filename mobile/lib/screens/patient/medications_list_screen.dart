@@ -247,7 +247,7 @@ class _MedicationsListScreenState extends State<MedicationsListScreen> {
                 stream: _service.watchMedications(user.uid),
                 builder: (context, snap) {
                   if (snap.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const _SkeletonMedsList();
                   }
 
                   final allMeds    = snap.data ?? [];
@@ -667,6 +667,146 @@ class _MedicationCard extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+// Skeleton loading
+
+class _SkeletonMedsList extends StatefulWidget {
+  const _SkeletonMedsList();
+
+  @override
+  State<_SkeletonMedsList> createState() => _SkeletonMedsListState();
+}
+
+class _SkeletonMedsListState extends State<_SkeletonMedsList>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _opacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 900))
+      ..repeat(reverse: true);
+    _opacity = Tween(begin: 0.4, end: 0.85).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Widget _box({double? width, required double height, double radius = 10}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF2A2A4A) : const Color(0xFFE2E8F0),
+        borderRadius: BorderRadius.circular(radius),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+
+    return AnimatedBuilder(
+      animation: _opacity,
+      builder: (_, _) => Opacity(
+        opacity: _opacity.value,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Calendar strip skeleton
+              Container(
+                width: double.infinity,
+                height: 90,
+                padding: const EdgeInsets.fromLTRB(10, 12, 10, 12),
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: List.generate(
+                    7,
+                    (_) => Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _box(width: 14, height: 10, radius: 4),
+                        const SizedBox(height: 6),
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? const Color(0xFF2A2A4A)
+                                : const Color(0xFFE2E8F0),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Day label
+              _box(width: 100, height: 12, radius: 6),
+              const SizedBox(height: 14),
+              // Medication cards
+              ...List.generate(4, (_) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                  decoration: BoxDecoration(
+                    color: cardBg,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? const Color(0xFF2A2A4A)
+                              : const Color(0xFFE2E8F0),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _box(height: 13, width: 130, radius: 7),
+                            const SizedBox(height: 7),
+                            _box(height: 10, width: 90, radius: 6),
+                            const SizedBox(height: 7),
+                            _box(height: 8, radius: 999),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
       ),
     );
   }

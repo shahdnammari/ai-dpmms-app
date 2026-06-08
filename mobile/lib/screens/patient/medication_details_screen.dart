@@ -321,12 +321,7 @@ class _MedicationDetailsScreenState extends State<MedicationDetailsScreen> {
                               builder: (context, snap) {
                                 if (snap.connectionState ==
                                     ConnectionState.waiting) {
-                                  return const SizedBox(
-                                    height: 40,
-                                    child: Center(
-                                        child: CircularProgressIndicator(
-                                            strokeWidth: 2)),
-                                  );
+                                  return const _SkeletonActivityRows();
                                 }
 
                                 final items = snap.data ?? [];
@@ -507,4 +502,95 @@ class _ActivityItem {
     required this.label,
     required this.color,
   });
+}
+
+// Skeleton loading
+
+class _SkeletonActivityRows extends StatefulWidget {
+  const _SkeletonActivityRows();
+
+  @override
+  State<_SkeletonActivityRows> createState() => _SkeletonActivityRowsState();
+}
+
+class _SkeletonActivityRowsState extends State<_SkeletonActivityRows>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _opacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 900))
+      ..repeat(reverse: true);
+    _opacity = Tween(begin: 0.4, end: 0.85).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Widget _box({double? width, required double height, double radius = 7}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF2A2A4A) : const Color(0xFFE2E8F0),
+        borderRadius: BorderRadius.circular(radius),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return AnimatedBuilder(
+      animation: _opacity,
+      builder: (_, _) => Opacity(
+        opacity: _opacity.value,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: List.generate(
+            3,
+            (_) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? const Color(0xFF2A2A4A)
+                          : const Color(0xFFE2E8F0),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _box(height: 11, width: 120, radius: 6),
+                        const SizedBox(height: 5),
+                        _box(height: 9, width: 80, radius: 5),
+                      ],
+                    ),
+                  ),
+                  _box(width: 36, height: 9, radius: 5),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

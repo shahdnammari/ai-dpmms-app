@@ -218,7 +218,7 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
         stream: _medicationsService.watchMedications(user.uid),
         builder: (context, medsSnap) {
           if (medsSnap.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const _SkeletonHomeContent();
           }
 
           final meds = medsSnap.data ?? [];
@@ -669,6 +669,169 @@ class _ActionCircleButton extends StatelessWidget {
             style:
                 TextStyle(fontWeight: FontWeight.w800, color: textColor)),
       ],
+    );
+  }
+}
+
+// Skeleton loading
+
+class _SkeletonHomeContent extends StatefulWidget {
+  const _SkeletonHomeContent();
+
+  @override
+  State<_SkeletonHomeContent> createState() => _SkeletonHomeContentState();
+}
+
+class _SkeletonHomeContentState extends State<_SkeletonHomeContent>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _opacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 900))
+      ..repeat(reverse: true);
+    _opacity = Tween(begin: 0.35, end: 0.75).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Widget _box({double? width, required double height, double radius = 10}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF2A2A4A) : const Color(0xFFE2E8F0),
+        borderRadius: BorderRadius.circular(radius),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+
+    return AnimatedBuilder(
+      animation: _opacity,
+      builder: (_, _) => Opacity(
+        opacity: _opacity.value,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header row
+              Row(
+                children: [
+                  Expanded(child: _box(height: 16, width: 160, radius: 8)),
+                  const SizedBox(width: 8),
+                  _box(width: 28, height: 28, radius: 8),
+                  const SizedBox(width: 8),
+                  _box(width: 28, height: 28, radius: 8),
+                  const SizedBox(width: 8),
+                  _box(width: 28, height: 28, radius: 8),
+                ],
+              ),
+              const SizedBox(height: 18),
+              // Daily progress label
+              _box(width: 110, height: 12, radius: 6),
+              const SizedBox(height: 10),
+              // Progress card
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _box(height: 16, radius: 999),
+                    const SizedBox(height: 10),
+                    _box(width: 80, height: 11, radius: 6),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 22),
+              // Checklist title
+              _box(width: 140, height: 18, radius: 8),
+              const SizedBox(height: 14),
+              // Dose cards
+              ...List.generate(3, (_) => _SkeletonDoseCard(isDark: isDark)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SkeletonDoseCard extends StatelessWidget {
+  final bool isDark;
+  const _SkeletonDoseCard({required this.isDark});
+
+  Widget _box({double? width, required double height, double radius = 8}) =>
+      Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF2A2A4A) : const Color(0xFFE2E8F0),
+          borderRadius: BorderRadius.circular(radius),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final cardBg = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF2A2A4A) : const Color(0xFFE2E8F0),
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _box(height: 13, width: 130, radius: 7),
+                const SizedBox(height: 7),
+                _box(height: 10, width: 80, radius: 6),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(child: _box(height: 32, radius: 10)),
+                    const SizedBox(width: 8),
+                    Expanded(child: _box(height: 32, radius: 10)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
