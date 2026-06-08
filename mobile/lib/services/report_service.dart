@@ -304,8 +304,8 @@ class ReportService {
       medicationNameByGroup: bucket.medicationsNameByGroup,
     );
 
-    final bestLabel = bestBar == null || bestBar.totalDue == 0
-        ? 'No data yet'
+    final bestLabel = bestBar == null || bestBar.totalDue == 0 || bestBar.adherence == 0
+        ? 'No best day yet'
         : '${bestBar.label} (${bestBar.adherencePercent}%)';
 
     return ReportResult(
@@ -396,8 +396,8 @@ class ReportService {
       medicationNameByGroup: bucket.medicationsNameByGroup,
     );
 
-    final bestLabel = bestBar == null || bestBar.totalDue == 0
-        ? 'No data yet'
+    final bestLabel = bestBar == null || bestBar.totalDue == 0 || bestBar.adherence == 0
+        ? 'No best day yet'
         : '${bestBar.label} (${bestBar.adherencePercent}%)';
 
     return ReportResult(
@@ -440,7 +440,9 @@ class ReportService {
 
     if (winners.isEmpty) return 'No data yet';
 
-    return winners.join(', ');
+    if (winners.length <= 2) return winners.join(', ');
+    final extra = winners.length - 2;
+    return '${winners.take(2).join(', ')} +$extra more';
   }
 }
 
