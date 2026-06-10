@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
+import '../l10n/app_strings.dart';
+import '../services/settings_service.dart';
 
 enum UserRole { patient, doctor }
 
@@ -35,8 +37,8 @@ class _RoleSelectScreenState extends State<RoleSelectScreen>
   @override
   void initState() {
     super.initState();
+    SettingsService.instance.addListener(_onSettingsChanged);
 
-    // Entry animation (one-shot)
     _entryCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
@@ -77,7 +79,6 @@ class _RoleSelectScreenState extends State<RoleSelectScreen>
       curve: const Interval(0.72, 1.0, curve: Curves.easeOut),
     );
 
-    // Pulse glow (repeating)
     _pulseCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2200),
@@ -86,13 +87,11 @@ class _RoleSelectScreenState extends State<RoleSelectScreen>
       CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
     );
 
-    // Chevrons (repeating)
     _chevronCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1600),
     )..repeat();
 
-    // Sheet
     _sheetCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 480),
@@ -110,11 +109,16 @@ class _RoleSelectScreenState extends State<RoleSelectScreen>
 
   @override
   void dispose() {
+    SettingsService.instance.removeListener(_onSettingsChanged);
     _entryCtrl.dispose();
     _pulseCtrl.dispose();
     _chevronCtrl.dispose();
     _sheetCtrl.dispose();
     super.dispose();
+  }
+
+  void _onSettingsChanged() {
+    if (mounted) setState(() {});
   }
 
   void _openSheet() {
@@ -153,35 +157,43 @@ class _RoleSelectScreenState extends State<RoleSelectScreen>
   }
 
   Future<UserRole?> _showRolePicker() {
+    final s = S.of(context);
+    final isRtl = SettingsService.instance.isRtl;
     return showDialog<UserRole>(
       context: context,
       barrierDismissible: true,
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Register as',
+      builder: (ctx) => Directionality(
+        textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+        child: Dialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  s.registerAs,
                   style: GoogleFonts.poppins(
-                      fontSize: 18, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 16),
-              _RoleTile(
-                icon: Icons.person_outline_rounded,
-                title: 'Patient',
-                subtitle: 'Track medications & stay on schedule',
-                onTap: () => Navigator.pop(ctx, UserRole.patient),
-              ),
-              const SizedBox(height: 10),
-              _RoleTile(
-                icon: Icons.medical_services_outlined,
-                title: 'Doctor',
-                subtitle: 'Monitor patients & manage care',
-                onTap: () => Navigator.pop(ctx, UserRole.doctor),
-              ),
-              const SizedBox(height: 4),
-            ],
+                      fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 16),
+                _RoleTile(
+                  icon: Icons.person_outline_rounded,
+                  title: s.rolePatient,
+                  subtitle: s.patientRoleSubtitle,
+                  onTap: () => Navigator.pop(ctx, UserRole.patient),
+                ),
+                const SizedBox(height: 10),
+                _RoleTile(
+                  icon: Icons.medical_services_outlined,
+                  title: s.roleDoctor,
+                  subtitle: s.doctorRoleSubtitle,
+                  onTap: () => Navigator.pop(ctx, UserRole.doctor),
+                ),
+                const SizedBox(height: 4),
+              ],
+            ),
           ),
         ),
       ),
@@ -202,7 +214,8 @@ class _RoleSelectScreenState extends State<RoleSelectScreen>
             .chain(CurveTween(curve: Curves.easeOut)),
         weight: 1,
       ),
-    ]).animate(CurvedAnimation(parent: _chevronCtrl, curve: Interval(start, end)));
+    ]).animate(
+        CurvedAnimation(parent: _chevronCtrl, curve: Interval(start, end)));
   }
 
   Animation<double> _chevronOffset(int index) {
@@ -219,251 +232,336 @@ class _RoleSelectScreenState extends State<RoleSelectScreen>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
+    final s = S.of(context);
+    final isRtl = SettingsService.instance.isRtl;
 
-    return PopScope(
-      canPop: !_sheetOpen,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _closeSheet();
-      },
-      child: Scaffold(
-        backgroundColor: const Color(0xFF0B1D3A),
-        body: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onVerticalDragEnd: (details) {
-            if (details.velocity.pixelsPerSecond.dy < -300) _openSheet();
-          },
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // Dark gradient background
-              Positioned.fill(
-                child: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Color(0xFF0B1D3A),
-                        Color(0xFF0F2554),
-                        Color(0xFF163466),
-                      ],
-                      stops: [0.0, 0.5, 1.0],
+    return Directionality(
+      textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+      child: PopScope(
+        canPop: !_sheetOpen,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _closeSheet();
+        },
+        child: Scaffold(
+          backgroundColor: const Color(0xFF0B1D3A),
+          body: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onVerticalDragEnd: (details) {
+              if (details.velocity.pixelsPerSecond.dy < -300) _openSheet();
+            },
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Background gradient
+                Positioned.fill(
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFF0B1D3A),
+                          Color(0xFF0F2554),
+                          Color(0xFF163466),
+                        ],
+                        stops: [0.0, 0.5, 1.0],
+                      ),
                     ),
                   ),
                 ),
-              ),
 
-              // Decorative orbs
-              Positioned(
-                top: -90, right: -90,
-                child: Container(
-                  width: 300, height: 300,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Color(0x1A3B82F6),
+                // Decorative orbs (absolute, unaffected by RTL)
+                Positioned(
+                  top: -90, right: -90,
+                  child: Container(
+                    width: 300, height: 300,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0x1A3B82F6),
+                    ),
                   ),
                 ),
-              ),
-              Positioned(
-                top: -40, right: -40,
-                child: Container(
-                  width: 160, height: 160,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Color(0x142563EB),
+                Positioned(
+                  top: -40, right: -40,
+                  child: Container(
+                    width: 160, height: 160,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0x142563EB),
+                    ),
                   ),
                 ),
-              ),
-              Positioned(
-                bottom: -80, left: -80,
-                child: Container(
-                  width: 280, height: 280,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Color(0x151E40AF),
+                Positioned(
+                  bottom: -80, left: -80,
+                  child: Container(
+                    width: 280, height: 280,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0x151E40AF),
+                    ),
                   ),
                 ),
-              ),
-              Positioned(
-                top: size.height * 0.42, left: -50,
-                child: Container(
-                  width: 130, height: 130,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Color(0x0D60A5FA),
+                Positioned(
+                  top: size.height * 0.42, left: -50,
+                  child: Container(
+                    width: 130, height: 130,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0x0D60A5FA),
+                    ),
                   ),
                 ),
-              ),
 
-              // Main content
-              SafeArea(
-                child: Column(
-                  children: [
-                    const Spacer(flex: 2),
-
-                    // Logo with entry animation
-                    AnimatedBuilder(
-                      animation: _entryCtrl,
-                      builder: (_, child) => Opacity(
-                        opacity: _logoFade.value,
-                        child: Transform.translate(
-                          offset: Offset(0, _logoSlide.value),
-                          child: child,
-                        ),
-                      ),
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          // Pulsing glow ring
-                          AnimatedBuilder(
-                            animation: _pulseCtrl,
-                            builder: (_, _) => Transform.scale(
-                              scale: _pulse.value,
-                              child: Container(
-                                width: 148, height: 148,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: const Color(0x203B82F6),
-                                  border: Border.all(
-                                    color: const Color(0x403B82F6),
-                                    width: 1.5,
-                                  ),
-                                ),
-                              ),
+                // Main content
+                SafeArea(
+                  child: Column(
+                    children: [
+                      // Language picker — top right
+                      AnimatedBuilder(
+                        animation: _hintFade,
+                        builder: (_, child) =>
+                            Opacity(opacity: _hintFade.value, child: child),
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: Padding(
+                            padding:
+                                const EdgeInsets.only(top: 10, right: 16, left: 16),
+                            child: Directionality(
+                              textDirection: TextDirection.ltr,
+                              child: _LangPicker(),
                             ),
                           ),
-                          // White logo circle
-                          Container(
-                            width: 112, height: 112,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white,
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Color(0x503B82F6),
-                                  blurRadius: 28,
-                                  spreadRadius: 2,
-                                ),
-                              ],
-                            ),
-                            child: ClipOval(
-                              child: Image.asset(
-                                'assets/images/logo.png',
-                                fit: BoxFit.contain,
-                                errorBuilder: (_, _, _) => const Center(
-                                  child: Text(
-                                    'AI',
-                                    style: TextStyle(
-                                      color: Color(0xFF0D1B4C),
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 28,
+                        ),
+                      ),
+
+                      const Spacer(flex: 2),
+
+                      // Logo
+                      AnimatedBuilder(
+                        animation: _entryCtrl,
+                        builder: (_, child) => Opacity(
+                          opacity: _logoFade.value,
+                          child: Transform.translate(
+                            offset: Offset(0, _logoSlide.value),
+                            child: child,
+                          ),
+                        ),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            AnimatedBuilder(
+                              animation: _pulseCtrl,
+                              builder: (_, _) => Transform.scale(
+                                scale: _pulse.value,
+                                child: Container(
+                                  width: 148, height: 148,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: const Color(0x203B82F6),
+                                    border: Border.all(
+                                      color: const Color(0x403B82F6),
+                                      width: 1.5,
                                     ),
                                   ),
                                 ),
                               ),
                             ),
+                            Container(
+                              width: 112, height: 112,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white,
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color(0x503B82F6),
+                                    blurRadius: 28,
+                                    spreadRadius: 2,
+                                  ),
+                                ],
+                              ),
+                              child: ClipOval(
+                                child: Image.asset(
+                                  'assets/images/logo.png',
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, _, _) => const Center(
+                                    child: Text(
+                                      'AI',
+                                      style: TextStyle(
+                                        color: Color(0xFF0D1B4C),
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 28,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 36),
+
+                      // Title
+                      AnimatedBuilder(
+                        animation: _entryCtrl,
+                        builder: (_, child) => Opacity(
+                          opacity: _titleFade.value,
+                          child: Transform.translate(
+                            offset: Offset(0, _titleSlide.value),
+                            child: child,
                           ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 36),
-
-                    // Title
-                    AnimatedBuilder(
-                      animation: _entryCtrl,
-                      builder: (_, child) => Opacity(
-                        opacity: _titleFade.value,
-                        child: Transform.translate(
-                          offset: Offset(0, _titleSlide.value),
-                          child: child,
                         ),
-                      ),
-                      child: Text(
-                        'AI-DPMMS',
-                        style: GoogleFonts.poppins(
-                          fontSize: 38,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    // Subtitle
-                    AnimatedBuilder(
-                      animation: _entryCtrl,
-                      builder: (_, child) => Opacity(
-                        opacity: _subtitleFade.value,
-                        child: Transform.translate(
-                          offset: Offset(0, _subtitleSlide.value),
-                          child: child,
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 40),
                         child: Text(
-                          'Your smart companion for\npersonalized care',
-                          textAlign: TextAlign.center,
+                          'AI-DPMMS',
                           style: GoogleFonts.poppins(
-                            fontSize: 15,
-                            height: 1.6,
-                            fontWeight: FontWeight.w400,
-                            color: const Color(0xFF93C5FD),
+                            fontSize: 38,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            letterSpacing: 0.5,
                           ),
                         ),
                       ),
-                    ),
 
-                    const Spacer(flex: 3),
+                      const SizedBox(height: 12),
 
-                    // Swipe hint
-                    AnimatedBuilder(
-                      animation: _hintFade,
-                      builder: (_, child) => Opacity(
-                        opacity: _hintFade.value,
-                        child: child,
+                      // Subtitle
+                      AnimatedBuilder(
+                        animation: _entryCtrl,
+                        builder: (_, child) => Opacity(
+                          opacity: _subtitleFade.value,
+                          child: Transform.translate(
+                            offset: Offset(0, _subtitleSlide.value),
+                            child: child,
+                          ),
+                        ),
+                        child: Padding(
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 40),
+                          child: Text(
+                            'Your smart companion for\npersonalized care',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.poppins(
+                              fontSize: 15,
+                              height: 1.6,
+                              fontWeight: FontWeight.w400,
+                              color: const Color(0xFF93C5FD),
+                            ),
+                          ),
+                        ),
                       ),
-                      child: _SwipeHint(
-                        chevronOpacity: _chevronOpacity,
-                        chevronOffset: _chevronOffset,
+
+                      const Spacer(flex: 3),
+
+                      // Swipe hint
+                      AnimatedBuilder(
+                        animation: _hintFade,
+                        builder: (_, child) => Opacity(
+                          opacity: _hintFade.value,
+                          child: child,
+                        ),
+                        child: _SwipeHint(
+                          label: s.swipeUpToStart,
+                          chevronOpacity: _chevronOpacity,
+                          chevronOffset: _chevronOffset,
+                        ),
                       ),
-                    ),
 
-                    const SizedBox(height: 40),
-                  ],
-                ),
-              ),
-
-              // Backdrop
-              if (_sheetOpen)
-                FadeTransition(
-                  opacity: _backdropFade,
-                  child: GestureDetector(
-                    onTap: _closeSheet,
-                    child: Container(color: Colors.black54),
+                      const SizedBox(height: 40),
+                    ],
                   ),
                 ),
 
-              // Bottom sheet
-              if (_sheetOpen)
-                Align(
-                  alignment: Alignment.bottomCenter,
-                  child: SlideTransition(
-                    position: Tween<Offset>(
-                      begin: const Offset(0, 1),
-                      end: Offset.zero,
-                    ).animate(_sheetSlide),
-                    child: _GetStartedSheet(
-                      onLogin: _goLogin,
-                      onRegister: _goRegister,
-                      onClose: _closeSheet,
+                // Backdrop
+                if (_sheetOpen)
+                  FadeTransition(
+                    opacity: _backdropFade,
+                    child: GestureDetector(
+                      onTap: _closeSheet,
+                      child: Container(color: Colors.black54),
                     ),
                   ),
-                ),
-            ],
+
+                // Bottom sheet
+                if (_sheetOpen)
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, 1),
+                        end: Offset.zero,
+                      ).animate(_sheetSlide),
+                      child: _GetStartedSheet(
+                        onLogin: _goLogin,
+                        onRegister: _goRegister,
+                        onClose: _closeSheet,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Language picker ───────────────────────────────────────────────────────────
+
+class _LangPicker extends StatelessWidget {
+  const _LangPicker();
+
+  @override
+  Widget build(BuildContext context) {
+    final current = SettingsService.instance.locale.languageCode;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _LangBtn(code: 'en', label: 'EN', current: current),
+        const SizedBox(width: 6),
+        _LangBtn(code: 'ar', label: 'عر', current: current),
+        const SizedBox(width: 6),
+        _LangBtn(code: 'he', label: 'עב', current: current),
+      ],
+    );
+  }
+}
+
+class _LangBtn extends StatelessWidget {
+  final String code;
+  final String label;
+  final String current;
+
+  const _LangBtn(
+      {required this.code, required this.label, required this.current});
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = current == code;
+    return GestureDetector(
+      onTap: selected
+          ? null
+          : () => SettingsService.instance.setLocale(Locale(code)),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+        decoration: BoxDecoration(
+          color: selected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? Colors.white : const Color(0xFF3B82F6),
+            width: 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+            color: selected
+                ? const Color(0xFF0D1B4C)
+                : const Color(0xFF93C5FD),
           ),
         ),
       ),
@@ -474,10 +572,15 @@ class _RoleSelectScreenState extends State<RoleSelectScreen>
 // ── Swipe hint ────────────────────────────────────────────────────────────────
 
 class _SwipeHint extends StatelessWidget {
+  final String label;
   final Animation<double> Function(int) chevronOpacity;
   final Animation<double> Function(int) chevronOffset;
 
-  const _SwipeHint({required this.chevronOpacity, required this.chevronOffset});
+  const _SwipeHint({
+    required this.label,
+    required this.chevronOpacity,
+    required this.chevronOffset,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -505,7 +608,7 @@ class _SwipeHint extends StatelessWidget {
         }),
         const SizedBox(height: 8),
         Text(
-          'Swipe up to get started',
+          label,
           style: GoogleFonts.poppins(
             fontSize: 13,
             fontWeight: FontWeight.w400,
@@ -518,7 +621,7 @@ class _SwipeHint extends StatelessWidget {
   }
 }
 
-// ── Bottom sheet ─────────────────────────────────────────────────────────────
+// ── Bottom sheet ──────────────────────────────────────────────────────────────
 
 class _GetStartedSheet extends StatelessWidget {
   final VoidCallback onLogin;
@@ -533,6 +636,7 @@ class _GetStartedSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = S.of(context);
     return GestureDetector(
       onVerticalDragEnd: (details) {
         if (details.velocity.pixelsPerSecond.dy > 300) onClose();
@@ -568,7 +672,7 @@ class _GetStartedSheet extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Get Started',
+                    s.getStarted,
                     style: GoogleFonts.poppins(
                       fontSize: 26,
                       fontWeight: FontWeight.w800,
@@ -578,7 +682,7 @@ class _GetStartedSheet extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Choose an option to continue',
+                    s.chooseOptionToContinue,
                     style: GoogleFonts.poppins(
                       fontSize: 14,
                       color: const Color(0xFF64748B),
@@ -601,9 +705,11 @@ class _GetStartedSheet extends StatelessWidget {
                       ),
                       onPressed: onLogin,
                       icon: const Icon(Icons.login_rounded, size: 20),
-                      label: Text('Login',
-                          style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.w600, fontSize: 16)),
+                      label: Text(
+                        s.loginTitle,
+                        style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600, fontSize: 16),
+                      ),
                     ),
                   ),
 
@@ -622,9 +728,11 @@ class _GetStartedSheet extends StatelessWidget {
                       ),
                       onPressed: onRegister,
                       icon: const Icon(Icons.person_add_outlined, size: 20),
-                      label: Text('Create Account',
-                          style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.w600, fontSize: 16)),
+                      label: Text(
+                        s.createAccount,
+                        style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600, fontSize: 16),
+                      ),
                     ),
                   ),
 
