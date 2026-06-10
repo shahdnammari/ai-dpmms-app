@@ -6,6 +6,8 @@ import 'auth_gate.dart';
 import 'role_select_screen.dart';
 import 'register_screen.dart';
 import 'reset_password_screen.dart';
+import '../l10n/app_strings.dart';
+import '../services/settings_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -29,6 +31,8 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
+    final s = S.of(context);
+
     setState(() {
       _loading = true;
       _error = null;
@@ -40,7 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (email.isEmpty || password.isEmpty) {
       setState(() {
         _loading = false;
-        _error = "Please enter email and password.";
+        _error = s.authEnterEmailAndPassword;
       });
       return;
     }
@@ -53,15 +57,17 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final uid = cred.user!.uid;
 
-      // Verify profile exists + has valid role (AuthGate will route)
       final doc = await FirebaseFirestore.instance
           .collection('users')
           .doc(uid)
           .get();
 
+      if (!mounted) return;
+
       if (!doc.exists) {
         await FirebaseAuth.instance.signOut();
-        throw Exception("Profile not found in Firestore. Please register again.");
+        if (mounted) setState(() => _error = s.authProfileNotFound);
+        return;
       }
 
       final data = doc.data();
@@ -69,51 +75,50 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (roleStr == null || (roleStr != 'patient' && roleStr != 'doctor')) {
         await FirebaseAuth.instance.signOut();
-        throw Exception("Invalid role in Firestore profile. Please register again.");
+        if (mounted) setState(() => _error = s.authInvalidRole);
+        return;
       }
 
       if (!mounted) return;
 
-      // Go to AuthGate so it routes to Patient/Doctor home
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const AuthGate()),
         (_) => false,
       );
     } on FirebaseAuthException catch (e) {
-      setState(() => _error = _friendlyAuthError(e));
-    } catch (e) {
-      setState(() => _error = "Something went wrong: $e");
+      if (!mounted) return;
+      setState(() => _error = _friendlyAuthError(e, s));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = s.authSomethingWentWrong);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  String _friendlyAuthError(FirebaseAuthException e) {
+  String _friendlyAuthError(FirebaseAuthException e, S s) {
     switch (e.code) {
-      case 'invalid-email':
-        return "Invalid email format.";
-      case 'user-not-found':
-        return "No account found for this email.";
-      case 'wrong-password':
-        return "Wrong password.";
-      case 'invalid-credential':
-        return "Invalid email or password.";
-      case 'user-disabled':
-        return "This user has been disabled.";
-      case 'too-many-requests':
-        return "Too many attempts. Try again later.";
-      default:
-        return e.message ?? "Login failed.";
+      case 'invalid-email': return s.authInvalidEmailFormat;
+      case 'user-not-found': return s.authUserNotFound;
+      case 'wrong-password': return s.authWrongPassword;
+      case 'invalid-credential': return s.authInvalidCredential;
+      case 'user-disabled': return s.authUserDisabled;
+      case 'too-many-requests': return s.authTooManyRequests;
+      default: return e.message ?? s.authLoginFailed;
     }
   }
 
   Future<void> _openRegisterRoleDialog() async {
+    final s = S.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final role = await showDialog<UserRole>(
       context: context,
       barrierDismissible: true,
       builder: (ctx) {
         return Dialog(
+          backgroundColor: isDark ? const Color(0xFF1E1E2E) : Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
@@ -122,20 +127,24 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  "Register as",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                Text(
+                  s.registerAs,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  ),
                 ),
                 const SizedBox(height: 16),
                 _RoleTile(
                   icon: Icons.badge_outlined,
-                  title: "Patient",
+                  title: s.rolePatient,
                   onTap: () => Navigator.pop(ctx, UserRole.patient),
                 ),
                 const SizedBox(height: 10),
                 _RoleTile(
                   icon: Icons.medical_services_outlined,
-                  title: "Doctor",
+                  title: s.roleDoctor,
                   onTap: () => Navigator.pop(ctx, UserRole.doctor),
                 ),
               ],
@@ -155,162 +164,174 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const bg = Color(0xFFF3F6FB);
+    final s = S.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isRtl = SettingsService.instance.isRtl;
 
-    return Scaffold(
-      backgroundColor: bg,
-      appBar: AppBar(
+    final bg = isDark ? const Color(0xFF0F172A) : const Color(0xFFF3F6FB);
+    final primaryText = isDark ? Colors.white : const Color(0xFF0F172A);
+    final secondaryText = isDark ? Colors.white70 : const Color(0xFF64748B);
+
+    return Directionality(
+      textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+      child: Scaffold(
         backgroundColor: bg,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            // RoleSelect
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (_) => const RoleSelectScreen()),
-              (_) => false,
-            );
-          },
+        appBar: AppBar(
+          backgroundColor: bg,
+          elevation: 0,
+          iconTheme: IconThemeData(color: primaryText),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const RoleSelectScreen()),
+                (_) => false,
+              );
+            },
+          ),
+          title: Text(
+            s.loginTitle,
+            style: TextStyle(fontWeight: FontWeight.w800, color: primaryText),
+          ),
+          centerTitle: false,
         ),
-        title: const Text(
-          "Login",
-          style: TextStyle(fontWeight: FontWeight.w800),
-        ),
-        centerTitle: false,
-      ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 22),
-            child: Column(
-              children: [
-                const SizedBox(height: 20),
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 22),
+              child: Column(
+                children: [
+                  const SizedBox(height: 20),
 
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    "Welcome Back",
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 6),
-
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    "Login to manage your medications",
-                    style: TextStyle(
-                      color: Color(0xFF64748B),
-                      fontWeight: FontWeight.w600,
-                      height: 1.35,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 32),
-
-                _NiceField(
-                  label: "Email",
-                  hint: "Enter your email",
-                  controller: _emailCtrl,
-                  keyboardType: TextInputType.emailAddress,
-                ),
-                const SizedBox(height: 14),
-
-                _NiceField(
-                  label: "Password",
-                  hint: "Enter your password",
-                  controller: _passCtrl,
-                  obscureText: true,
-                ),
-                const SizedBox(height: 8),
-
-                Align(
-                  alignment: Alignment.center,
-                  child: TextButton(
-                    onPressed: _loading
-                        ? null
-                        : () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const ResetPasswordScreen(),
-                              ),
-                            );
-                          },
-                    child: const Text(
-                      "Forgot password?",
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(
+                      s.welcomeBack,
                       style: TextStyle(
-                      color: Color(0xFF3B82F6),
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ),
-
-                if (_error != null) ...[
-                  Text(_error!, style: const TextStyle(color: Colors.red)),
-                  const SizedBox(height: 10),
-                ],
-
-                const SizedBox(height: 10),
-
-                SizedBox(
-                  width: double.infinity,
-                  height: 54,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0F172A),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        color: primaryText,
                       ),
-                      elevation: 6,
                     ),
-                    onPressed: _loading ? null : _login,
-                    child: _loading
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text(
-                            "Login",
-                            style: TextStyle(
-                              color: Color(0XFFFFFFFF),
-                              fontWeight: FontWeight.w800
-                            ),
-                          ),
                   ),
-                ),
+                  const SizedBox(height: 6),
 
-                const SizedBox(height: 14),
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(
+                      s.loginSubtitle,
+                      style: TextStyle(
+                        color: secondaryText,
+                        fontWeight: FontWeight.w600,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
 
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text("Don't have an account? "),
-                    InkWell(
-                      onTap: _loading ? null : _openRegisterRoleDialog,
-                      child: const Text(
-                        "Register",
-                         style: TextStyle(
+                  _NiceField(
+                    label: s.email,
+                    hint: s.enterEmailHint,
+                    controller: _emailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                  const SizedBox(height: 14),
+
+                  _NiceField(
+                    label: s.password,
+                    hint: s.enterPasswordHint,
+                    controller: _passCtrl,
+                    obscureText: true,
+                  ),
+                  const SizedBox(height: 8),
+
+                  Align(
+                    alignment: Alignment.center,
+                    child: TextButton(
+                      onPressed: _loading
+                          ? null
+                          : () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const ResetPasswordScreen(),
+                                ),
+                              );
+                            },
+                      child: Text(
+                        s.forgotPassword,
+                        style: const TextStyle(
                           color: Color(0xFF3B82F6),
                           fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),
-        
+                  ),
+
+                  if (_error != null) ...[
+                    Text(_error!, style: const TextStyle(color: Colors.red)),
+                    const SizedBox(height: 10),
                   ],
-                ),
-              ],
+
+                  const SizedBox(height: 10),
+
+                  SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0F172A),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        elevation: 6,
+                      ),
+                      onPressed: _loading ? null : _login,
+                      child: _loading
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Text(
+                              s.loginTitle,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '${s.dontHaveAccount} ',
+                        style: TextStyle(color: secondaryText),
+                      ),
+                      InkWell(
+                        onTap: _loading ? null : _openRegisterRoleDialog,
+                        child: Text(
+                          s.register,
+                          style: const TextStyle(
+                            color: Color(0xFF3B82F6),
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
             ),
           ),
         ),
@@ -336,14 +357,20 @@ class _NiceField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final labelColor = isDark ? Colors.white : const Color(0xFF0F172A);
+    final fillColor = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+    final hintColor = isDark ? Colors.white38 : const Color(0xFF94A3B8);
+    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontWeight: FontWeight.w700,
-            color: Color(0xFF0F172A),
+            color: labelColor,
           ),
         ),
         const SizedBox(height: 8),
@@ -351,10 +378,12 @@ class _NiceField extends StatelessWidget {
           controller: controller,
           obscureText: obscureText,
           keyboardType: keyboardType,
+          style: TextStyle(color: textColor),
           decoration: InputDecoration(
             hintText: hint,
+            hintStyle: TextStyle(color: hintColor),
             filled: true,
-            fillColor: Colors.white,
+            fillColor: fillColor,
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             border: OutlineInputBorder(
@@ -381,29 +410,40 @@ class _RoleTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? const Color(0xFF2A2A4A) : const Color(0xFFF8FAFC);
+    final borderColor =
+        isDark ? const Color(0xFF3A3A5C) : const Color(0xFFE2E8F0);
+    final iconColor = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
+    final chevronColor =
+        isDark ? Colors.white54 : const Color(0xFF64748B);
+
     return InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
+          color: bgColor,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+          border: Border.all(color: borderColor),
         ),
         child: Row(
           children: [
-            Icon(icon, color: const Color(0xFF0F172A)),
+            Icon(icon, color: iconColor),
             const SizedBox(width: 12),
-            Text(
-              title,
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  color: textColor,
+                ),
               ),
             ),
-          
-            const Icon(Icons.chevron_right, color: Color(0xFF64748B)),
+            Icon(Icons.chevron_right, color: chevronColor),
           ],
         ),
       ),

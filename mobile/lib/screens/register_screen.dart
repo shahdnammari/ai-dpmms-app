@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 
 import 'auth_gate.dart';
 import 'role_select_screen.dart';
 import 'login_screen.dart';
+import '../l10n/app_strings.dart';
+import '../services/settings_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   final UserRole role;
@@ -17,13 +18,11 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  // Step 1
   final _usernameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   final _doctorLicenseCtrl = TextEditingController();
 
-  // Step 2 (patients only)
   String? _gender;
   DateTime? _birthday;
   final List<String> _conditions = [];
@@ -33,8 +32,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _error;
 
   static const _blue = Color(0xFF1E3A8A);
-  static const _dark = Color(0xFF0F172A);
-  static const _bg = Color(0xFFF3F6FB);
 
   static const _commonConditions = [
     'Diabetes',
@@ -58,34 +55,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  // ── Validation ─────────────────────────────────────────────────────────────
-
-  String? _validateStep1() {
+  String? _validateStep1(S s) {
     if (_usernameCtrl.text.trim().isEmpty ||
         _emailCtrl.text.trim().isEmpty ||
         _passCtrl.text.isEmpty) {
-      return "Please fill all fields.";
+      return s.authEmptyFields;
     }
     if (!RegExp(r'^[\w\-.]+@([\w-]+\.)+[\w-]{2,4}$')
         .hasMatch(_emailCtrl.text.trim())) {
-      return "Enter a valid email address.";
+      return s.authInvalidEmailFormat;
     }
     if (_passCtrl.text.length < 6) {
-      return "Password must be at least 6 characters.";
+      return s.authWeakPassword;
     }
     return null;
   }
 
-  String? _validateStep2() {
-    if (_gender == null) return "Please select your gender.";
-    if (_birthday == null) return "Please select your birthday.";
+  String? _validateStep2(S s) {
+    if (_gender == null) return s.authSelectGender;
+    if (_birthday == null) return s.authSelectBirthday;
     return null;
   }
 
-  // ── Navigation ─────────────────────────────────────────────────────────────
-
   void _nextStep() {
-    final err = _validateStep1();
+    final s = S.of(context);
+    final err = _validateStep1(s);
     if (err != null) {
       setState(() => _error = err);
       return;
@@ -101,11 +95,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _error = null;
       });
 
-  // ── Registration ────────────────────────────────────────────────────────────
-
   Future<void> _register() async {
+    final s = S.of(context);
+
     if (_isPatient) {
-      final err = _validateStep2();
+      final err = _validateStep2(s);
       if (err != null) {
         setState(() => _error = err);
         return;
@@ -147,7 +141,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Account created successfully")),
+        SnackBar(content: Text(s.accountCreated)),
       );
       Navigator.pushAndRemoveUntil(
         context,
@@ -155,31 +149,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
         (_) => false,
       );
     } on FirebaseAuthException catch (e) {
-      setState(() => _error = _friendlyError(e));
-    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = _friendlyError(e, s));
+    } catch (_) {
       try {
         await cred?.user?.delete();
       } catch (_) {}
-      setState(() => _error = "Something went wrong. Please try again.");
+      if (!mounted) return;
+      setState(() => _error = s.authSomethingWentWrong);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  String _friendlyError(FirebaseAuthException e) {
+  String _friendlyError(FirebaseAuthException e, S s) {
     switch (e.code) {
-      case 'email-already-in-use':
-        return "This email is already registered.";
-      case 'invalid-email':
-        return "Invalid email format.";
-      case 'weak-password':
-        return "Password is too weak (min 6 chars).";
-      default:
-        return e.message ?? "Registration failed.";
+      case 'email-already-in-use': return s.authEmailInUse;
+      case 'invalid-email': return s.authInvalidEmailFormat;
+      case 'weak-password': return s.authWeakPasswordShort;
+      default: return e.message ?? s.authRegistrationFailed;
     }
   }
-
-  // ── Birthday picker ─────────────────────────────────────────────────────────
 
   Future<void> _pickBirthday() async {
     final picked = await showDatePicker(
@@ -191,127 +181,141 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (picked != null) setState(() => _birthday = picked);
   }
 
-  // ── Build ───────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
+    final s = S.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isRtl = SettingsService.instance.isRtl;
     final isStep2 = _isPatient && _step == 2;
 
-    return Scaffold(
-      backgroundColor: _bg,
-      appBar: AppBar(
-        backgroundColor: _bg,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            if (isStep2) {
-              _prevStep();
-            } else {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const RoleSelectScreen()),
-                (_) => false,
-              );
-            }
-          },
-        ),
-        title: Text(
-          "Create Account",
-          style: GoogleFonts.inter(
-            fontSize: 24,
-            fontWeight: FontWeight.w800,
-            color: _dark,
+    final bg = isDark ? const Color(0xFF0F172A) : const Color(0xFFF3F6FB);
+    final primaryText = isDark ? Colors.white : const Color(0xFF0F172A);
+    final secondaryText = isDark ? Colors.white70 : const Color(0xFF64748B);
+
+    return Directionality(
+      textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+      child: Scaffold(
+        backgroundColor: bg,
+        appBar: AppBar(
+          backgroundColor: bg,
+          elevation: 0,
+          iconTheme: IconThemeData(color: primaryText),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              if (isStep2) {
+                _prevStep();
+              } else {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const RoleSelectScreen()),
+                  (_) => false,
+                );
+              }
+            },
           ),
+          title: Text(
+            s.createAccount,
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              color: primaryText,
+            ),
+          ),
+          centerTitle: false,
         ),
-        centerTitle: false,
-      ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(22, 8, 22, 32),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Step indicator (patients only)
-                if (_isPatient) ...[
-                  _StepIndicator(current: _step),
-                  const SizedBox(height: 24),
-                ],
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(22, 8, 22, 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_isPatient) ...[
+                    _StepIndicator(current: _step),
+                    const SizedBox(height: 24),
+                  ],
 
-                if (!isStep2) _buildStep1() else _buildStep2(),
+                  if (!isStep2)
+                    _buildStep1(s, isDark, secondaryText)
+                  else
+                    _buildStep2(s, isDark, primaryText, secondaryText),
 
-                if (_error != null) ...[
-                  const SizedBox(height: 12),
-                  Text(_error!,
-                      style: const TextStyle(color: Colors.red, fontSize: 13)),
-                ],
+                  if (_error != null) ...[
+                    const SizedBox(height: 12),
+                    Text(_error!,
+                        style:
+                            const TextStyle(color: Colors.red, fontSize: 13)),
+                  ],
 
-                const SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
-                // Action button
-                SizedBox(
-                  width: double.infinity,
-                  height: 54,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _dark,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0F172A),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        elevation: 4,
                       ),
-                      elevation: 4,
+                      onPressed: _loading
+                          ? null
+                          : (isStep2 || !_isPatient) ? _register : _nextStep,
+                      child: _loading
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Text(
+                              isStep2 || !_isPatient ? s.register : s.nextBtn,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 16,
+                              ),
+                            ),
                     ),
-                    onPressed: _loading
-                        ? null
-                        : (isStep2 || !_isPatient) ? _register : _nextStep,
-                    child: _loading
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : Text(
-                            isStep2 || !_isPatient ? "Register" : "Next",
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 16,
-                            ),
-                          ),
                   ),
-                ),
 
-                if (!isStep2) ...[
-                  const SizedBox(height: 14),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text("Already have an account? "),
-                      GestureDetector(
-                        onTap: _loading
-                            ? null
-                            : () => Navigator.pushAndRemoveUntil(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) => const LoginScreen()),
-                                  (_) => false,
-                                ),
-                        child: const Text(
-                          "Login",
-                          style: TextStyle(
-                            color: Color(0xFF3B82F6),
-                            fontWeight: FontWeight.w800,
+                  if (!isStep2) ...[
+                    const SizedBox(height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '${s.alreadyHaveAccount} ',
+                          style: TextStyle(color: secondaryText),
+                        ),
+                        GestureDetector(
+                          onTap: _loading
+                              ? null
+                              : () => Navigator.pushAndRemoveUntil(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) => const LoginScreen()),
+                                    (_) => false,
+                                  ),
+                          child: Text(
+                            s.loginTitle,
+                            style: const TextStyle(
+                              color: Color(0xFF3B82F6),
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
@@ -319,47 +323,43 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  // ── Step 1 UI ───────────────────────────────────────────────────────────────
-
-  Widget _buildStep1() {
+  Widget _buildStep1(S s, bool isDark, Color secondaryText) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          _isPatient
-              ? "Let's start with your basic info"
-              : "Create your doctor account",
-          style: const TextStyle(
-            color: Color(0xFF475569),
+          _isPatient ? s.createPatientSubtitle : s.createDoctorSubtitle,
+          style: TextStyle(
+            color: secondaryText,
             fontWeight: FontWeight.w600,
             height: 1.35,
           ),
         ),
         const SizedBox(height: 24),
         _NiceField(
-          label: "User Name",
-          hint: "Enter your name",
+          label: s.userName,
+          hint: s.enterNameHint,
           controller: _usernameCtrl,
         ),
         const SizedBox(height: 14),
         _NiceField(
-          label: "Email",
-          hint: "Enter your email",
+          label: s.email,
+          hint: s.enterEmailHint,
           controller: _emailCtrl,
           keyboardType: TextInputType.emailAddress,
         ),
         const SizedBox(height: 14),
         _NiceField(
-          label: "Password",
-          hint: "Min 6 characters",
+          label: s.password,
+          hint: s.minPasswordHint,
           controller: _passCtrl,
           obscureText: true,
         ),
         if (!_isPatient) ...[
           const SizedBox(height: 14),
           _NiceField(
-            label: "Medical License ID (optional)",
-            hint: "Enter license number",
+            label: s.medicalLicenseOptional,
+            hint: s.enterLicenseHint,
             controller: _doctorLicenseCtrl,
           ),
         ],
@@ -368,16 +368,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  // ── Step 2 UI ───────────────────────────────────────────────────────────────
+  Widget _buildStep2(S s, bool isDark, Color primaryText, Color secondaryText) {
+    final borderColor =
+        isDark ? const Color(0xFF3A3A5C) : const Color(0xFFE2E8F0);
+    final fieldFill = isDark ? const Color(0xFF1E1E2E) : Colors.white;
 
-  Widget _buildStep2() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          "Tell us about your health",
+        Text(
+          s.healthInfoSubtitle,
           style: TextStyle(
-            color: Color(0xFF475569),
+            color: secondaryText,
             fontWeight: FontWeight.w600,
             height: 1.35,
           ),
@@ -385,66 +387,93 @@ class _RegisterScreenState extends State<RegisterScreen> {
         const SizedBox(height: 24),
 
         // Gender
-        const _FieldLabel("Gender"),
+        _FieldLabel(s.gender),
         const SizedBox(height: 8),
         Row(
-          children: ['Male', 'Female'].map((g) {
-            final selected = _gender == g;
-            return Expanded(
+          children: [
+            Expanded(
               child: GestureDetector(
-                onTap: () => setState(() => _gender = g),
+                onTap: () => setState(() => _gender = 'Male'),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
-                  margin: EdgeInsets.only(right: g == 'Male' ? 8 : 0),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   decoration: BoxDecoration(
-                    color: selected ? _blue : Colors.white,
+                    color: _gender == 'Male' ? _blue : fieldFill,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: selected ? _blue : const Color(0xFFE2E8F0),
+                      color: _gender == 'Male' ? _blue : borderColor,
                     ),
                   ),
                   child: Text(
-                    g,
+                    s.male,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
-                      color: selected ? Colors.white : const Color(0xFF64748B),
+                      color: _gender == 'Male' ? Colors.white : secondaryText,
                     ),
                   ),
                 ),
               ),
-            );
-          }).toList(),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() => _gender = 'Female'),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    color: _gender == 'Female' ? _blue : fieldFill,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: _gender == 'Female' ? _blue : borderColor,
+                    ),
+                  ),
+                  child: Text(
+                    s.female,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color:
+                          _gender == 'Female' ? Colors.white : secondaryText,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 20),
 
         // Birthday
-        const _FieldLabel("Date of Birth"),
+        _FieldLabel(s.birthday),
         const SizedBox(height: 8),
         GestureDetector(
           onTap: _pickBirthday,
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: fieldFill,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              border: Border.all(color: borderColor),
             ),
             child: Row(
               children: [
-                const Icon(Icons.calendar_today_outlined,
-                    color: Color(0xFF64748B), size: 18),
+                Icon(Icons.calendar_today_outlined,
+                    color: secondaryText, size: 18),
                 const SizedBox(width: 10),
                 Text(
                   _birthday == null
-                      ? "Select date of birth"
+                      ? s.selectBirthday
                       : DateFormat('MMMM d, yyyy').format(_birthday!),
                   style: TextStyle(
                     color: _birthday == null
-                        ? const Color(0xFF94A3B8)
-                        : _dark,
+                        ? (isDark
+                            ? Colors.white38
+                            : const Color(0xFF94A3B8))
+                        : primaryText,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -454,12 +483,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         const SizedBox(height: 20),
 
-        // Conditions
-        const _FieldLabel("Medical Conditions (optional)"),
+        // Medical conditions
+        _FieldLabel(s.medicalConditionsOptional),
         const SizedBox(height: 4),
-        const Text(
-          "Select all that apply",
-          style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+        Text(
+          s.selectAllThatApply,
+          style: TextStyle(
+            fontSize: 12,
+            color: isDark ? Colors.white38 : const Color(0xFF94A3B8),
+          ),
         ),
         const SizedBox(height: 10),
         Wrap(
@@ -468,7 +500,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           children: _commonConditions.map((c) {
             final selected = _conditions.contains(c);
             return FilterChip(
-              label: Text(c, style: const TextStyle(fontSize: 13)),
+              label: Text(s.conditionName(c),
+                  style: const TextStyle(fontSize: 13)),
               selected: selected,
               onSelected: (val) => setState(() {
                 if (val) {
@@ -477,14 +510,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   _conditions.remove(c);
                 }
               }),
-              selectedColor: const Color(0xFFDBEAFE),
+              backgroundColor: isDark ? const Color(0xFF2A2A4A) : Colors.white,
+              selectedColor: isDark
+                  ? const Color(0xFF1E3A8A).withValues(alpha: 0.5)
+                  : const Color(0xFFDBEAFE),
               checkmarkColor: _blue,
               side: BorderSide(
-                color: selected ? _blue : const Color(0xFFCBD5E1),
+                color: selected
+                    ? _blue
+                    : (isDark
+                        ? const Color(0xFF3A3A5C)
+                        : const Color(0xFFCBD5E1)),
               ),
               labelStyle: TextStyle(
-                color: selected ? _blue : const Color(0xFF475569),
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                color: selected
+                    ? (isDark ? Colors.white : _blue)
+                    : (isDark
+                        ? Colors.white70
+                        : const Color(0xFF475569)),
+                fontWeight:
+                    selected ? FontWeight.w700 : FontWeight.w400,
               ),
             );
           }).toList(),
@@ -503,18 +548,22 @@ class _StepIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = S.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       children: [
-        _StepDot(number: 1, active: current >= 1, label: "Basic Info"),
+        _StepDot(number: 1, active: current >= 1, label: s.stepBasicInfo),
         Expanded(
           child: Container(
             height: 2,
             color: current >= 2
                 ? const Color(0xFF1E3A8A)
-                : const Color(0xFFE2E8F0),
+                : (isDark
+                    ? const Color(0xFF3A3A5C)
+                    : const Color(0xFFE2E8F0)),
           ),
         ),
-        _StepDot(number: 2, active: current >= 2, label: "Health Info"),
+        _StepDot(number: 2, active: current >= 2, label: s.stepHealthInfo),
       ],
     );
   }
@@ -529,6 +578,12 @@ class _StepDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final inactiveCircle =
+        isDark ? const Color(0xFF2A2A4A) : const Color(0xFFE2E8F0);
+    final inactiveText =
+        isDark ? Colors.white38 : const Color(0xFF94A3B8);
+
     return Column(
       children: [
         AnimatedContainer(
@@ -537,13 +592,13 @@ class _StepDot extends StatelessWidget {
           height: 32,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: active ? const Color(0xFF1E3A8A) : const Color(0xFFE2E8F0),
+            color: active ? const Color(0xFF1E3A8A) : inactiveCircle,
           ),
           child: Center(
             child: Text(
               '$number',
               style: TextStyle(
-                color: active ? Colors.white : const Color(0xFF94A3B8),
+                color: active ? Colors.white : inactiveText,
                 fontWeight: FontWeight.w800,
                 fontSize: 14,
               ),
@@ -555,9 +610,7 @@ class _StepDot extends StatelessWidget {
           label,
           style: TextStyle(
             fontSize: 11,
-            color: active
-                ? const Color(0xFF1E3A8A)
-                : const Color(0xFF94A3B8),
+            color: active ? const Color(0xFF1E3A8A) : inactiveText,
             fontWeight: active ? FontWeight.w700 : FontWeight.w400,
           ),
         ),
@@ -574,11 +627,12 @@ class _FieldLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Text(
       text,
-      style: const TextStyle(
+      style: TextStyle(
         fontWeight: FontWeight.w700,
-        color: Color(0xFF0F172A),
+        color: isDark ? Colors.white : const Color(0xFF0F172A),
         fontSize: 14,
       ),
     );
@@ -602,6 +656,11 @@ class _NiceField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final fillColor = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+    final hintColor = isDark ? Colors.white38 : const Color(0xFF94A3B8);
+    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -611,10 +670,12 @@ class _NiceField extends StatelessWidget {
           controller: controller,
           obscureText: obscureText,
           keyboardType: keyboardType,
+          style: TextStyle(color: textColor),
           decoration: InputDecoration(
             hintText: hint,
+            hintStyle: TextStyle(color: hintColor),
             filled: true,
-            fillColor: Colors.white,
+            fillColor: fillColor,
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             border: OutlineInputBorder(
