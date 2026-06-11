@@ -4,7 +4,11 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'dart:math' show min;
 
 import '../../l10n/app_strings.dart';
+import '../../models/medication.dart';
+import '../../services/alert_service.dart';
+import '../../services/report_service.dart';
 import '../../services/app_refresh.dart';
+import '../patient/medication_form_screen.dart';
 import 'patient_details_screen.dart';
 
 // Avatar palette
@@ -132,32 +136,8 @@ class _DoctorPatientsTabState extends State<DoctorPatientsTab> {
     return s.daysAgo(diff.inDays);
   }
 
-  String _dateId(DateTime d) =>
-      '${d.year.toString().padLeft(4, '0')}-'
-      '${d.month.toString().padLeft(2, '0')}-'
-      '${d.day.toString().padLeft(2, '0')}';
-
-  Future<double> _adherenceFor(String uid) async {
-    final db = FirebaseFirestore.instance;
-    final today = DateTime.now();
-    int total = 0, taken = 0;
-    for (int i = 0; i < 7; i++) {
-      final day = today.subtract(Duration(days: i));
-      final snap = await db
-          .collection('users')
-          .doc(uid)
-          .collection('daily_intake')
-          .doc(_dateId(day))
-          .get();
-      for (final entry in (snap.data() ?? {}).values) {
-        if (entry is Map) {
-          total++;
-          if (entry['status'] == 'taken') taken++;
-        }
-      }
-    }
-    return total == 0 ? 1.0 : taken / total;
-  }
+  Future<double> _adherenceFor(String uid) =>
+      ReportService().getAdherenceLast7Days(uid);
 
   Future<int> _medicationCountFor(String uid) async {
     final snap = await FirebaseFirestore.instance
@@ -193,6 +173,8 @@ class _DoctorPatientsTabState extends State<DoctorPatientsTab> {
         final lastActivity = ts is Timestamp ? ts.toDate() : null;
         final medCount = await _medicationCountFor(doc.id);
         final adherence = await _adherenceFor(doc.id);
+        // Fire-and-forget: generate alert if adherence is low
+        AlertService.analyzeAndAlert(targetUid: doc.id);
         patients.add(_PatientInfo(
           uid: doc.id,
           name: name,
@@ -278,12 +260,18 @@ class _DoctorPatientsTabState extends State<DoctorPatientsTab> {
     if (confirmed == true) _softDelete(patient);
   }
 
-  void _onEdit(_PatientInfo patient) =>
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(
-                'Edit medications for ${patient.name} — coming soon')),
-      );
+  void _onEdit(_PatientInfo patient) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _MedsSheet(
+        patientUid: patient.uid,
+        patientName: patient.name,
+        onChanged: _loadPatients,
+      ),
+    );
+  }
 
   Future<void> _onDetails(_PatientInfo patient) async {
     final deleted = await Navigator.of(context).push<bool>(
@@ -1080,6 +1068,268 @@ class _SkeletonCardState extends State<_SkeletonCard>
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ── Medications bottom sheet ──────────────────────────────────────────────────
+
+class _MedsSheet extends StatefulWidget {
+  final String patientUid;
+  final String patientName;
+  final VoidCallback? onChanged;
+
+  const _MedsSheet({
+    required this.patientUid,
+    required this.patientName,
+    this.onChanged,
+  });
+
+  @override
+  State<_MedsSheet> createState() => _MedsSheetState();
+}
+
+class _MedsSheetState extends State<_MedsSheet> {
+  List<Medication>? _meds;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.patientUid)
+          .collection('medications')
+          .orderBy('startDate', descending: false)
+          .get();
+
+      final today = DateTime.now();
+      final todayOnly = DateTime(today.year, today.month, today.day);
+      final meds = snap.docs
+          .map((d) => Medication.fromDoc(d))
+          .where((m) => m.endDate == null || !m.endDate!.isBefore(todayOnly))
+          .toList();
+
+      if (mounted) setState(() { _meds = meds; _loading = false; });
+    } catch (_) {
+      if (mounted) setState(() { _meds = []; _loading = false; });
+    }
+  }
+
+  Future<void> _openEdit(Medication med) async {
+    final savedName = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MedicationFormScreen(
+          uid: widget.patientUid,
+          existing: med,
+          effectiveDate: DateTime.now(),
+          source: MedicationFormSource.medicationsList,
+        ),
+      ),
+    );
+    if (savedName != null && savedName.isNotEmpty) {
+      _sendNotification('medication_updated', savedName);
+      widget.onChanged?.call();
+      _load();
+    }
+  }
+
+  Future<void> _openAdd() async {
+    final savedName = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MedicationFormScreen(
+          uid: widget.patientUid,
+          effectiveDate: DateTime.now(),
+          source: MedicationFormSource.medicationsList,
+        ),
+      ),
+    );
+    if (savedName != null && savedName.isNotEmpty) {
+      _sendNotification('medication_added', savedName);
+      widget.onChanged?.call();
+      _load();
+    }
+  }
+
+  Future<void> _sendNotification(String type, String medName) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.patientUid)
+          .collection('inbox_notifications')
+          .add({
+        'type': type,
+        'medication_name': medName,
+        'title': type == 'medication_added' ? 'Medication Added' : 'Medication Updated',
+        'body': medName,
+        'read': false,
+        'event_time': FieldValue.serverTimestamp(),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+    final onBg = isDark ? Colors.white : const Color(0xFF0F172A);
+    final subColor = isDark ? Colors.white54 : const Color(0xFF64748B);
+    final tileBg = isDark ? const Color(0xFF2A2A4A) : const Color(0xFFF8FAFC);
+    final borderColor = isDark ? const Color(0xFF3A3A5C) : const Color(0xFFE2E8F0);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.fromLTRB(
+        20, 16, 20,
+        20 + MediaQuery.of(context).padding.bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade400,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          Row(
+            children: [
+              const Icon(Icons.medication_outlined,
+                  color: Color(0xFF1E3A8A), size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.patientName,
+                      style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: onBg),
+                    ),
+                    Text(
+                      s.medications,
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: subColor,
+                          fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 32),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_meds!.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: Text(s.noMedicationsYet,
+                  style: TextStyle(color: subColor, fontWeight: FontWeight.w600)),
+            )
+          else
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.45,
+              ),
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: _meds!.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 10),
+                itemBuilder: (_, i) {
+                  final med = _meds![i];
+                  return InkWell(
+                    onTap: () => _openEdit(med),
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: tileBg,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: borderColor),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.medication_outlined,
+                              color: Color(0xFF1E3A8A), size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  med.name,
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 15,
+                                      color: onBg),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  med.dosage,
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      color: subColor,
+                                      fontWeight: FontWeight.w500),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(Icons.chevron_right, color: subColor, size: 20),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+
+          const SizedBox(height: 16),
+
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _openAdd,
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF1E3A8A),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              icon: const Icon(Icons.add, color: Colors.white, size: 20),
+              label: Text(
+                s.addMedication,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
