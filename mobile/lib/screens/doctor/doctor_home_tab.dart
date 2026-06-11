@@ -4,11 +4,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
 import '../../l10n/app_strings.dart';
+import '../../services/report_service.dart';
 import '../../services/settings_service.dart';
 import '../role_select_screen.dart';
 import '../patient/settings_screen.dart';
-import 'patient_details_screen.dart';
 import 'doctor_ai_screen.dart';
+import 'patient_details_screen.dart';
+import 'send_message_screen.dart';
 
 // Severity
 
@@ -95,11 +97,6 @@ class _DoctorHomeTabState extends State<DoctorHomeTab> {
 
   String _formatToday() => DateFormat('d MMMM, EEEE').format(DateTime.now());
 
-  String _dateId(DateTime d) =>
-      '${d.year.toString().padLeft(4, '0')}-'
-      '${d.month.toString().padLeft(2, '0')}-'
-      '${d.day.toString().padLeft(2, '0')}';
-
   static String relativeTime(DateTime dt, S s) {
     final diff = DateTime.now().difference(dt);
     if (diff.inMinutes < 1)  return s.justNow;
@@ -167,6 +164,33 @@ class _DoctorHomeTabState extends State<DoctorHomeTab> {
     } else if (selected == 'help') {
       _showHelpSheet();
     } else if (selected == 'logout') {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text(s.logoutConfirmTitle,
+              style: const TextStyle(fontWeight: FontWeight.w800)),
+          content: Text(s.logoutConfirmMsg),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(s.cancel,
+                  style: const TextStyle(color: Color(0xFF3B82F6))),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFDC2626),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(s.logoutButton),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
       await FirebaseAuth.instance.signOut();
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
@@ -235,52 +259,37 @@ class _DoctorHomeTabState extends State<DoctorHomeTab> {
       .showSnackBar(const SnackBar(content: Text('Add Patient — coming soon')));
 
   Future<void> _sendReminderFor(_Alert alert) async {
-    final s = S.of(context);
-    await FirebaseFirestore.instance
-        .collection('alerts')
-        .doc(alert.id)
-        .update({'isRead': true});
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(s.reminderSentTo(alert.patientName))),
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SendMessageScreen(
+          prefilledPatientId: alert.patientId,
+          prefilledPatientName: alert.patientName,
+        ),
+      ),
     );
+    // Alert stays visible until it auto-expires after 24 hours.
+    // Deleting it here would reset the cooldown and cause duplicate alerts.
   }
 
   void _viewPatient(_Alert alert) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => PatientDetailsScreen(
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.transparent,
+        transitionDuration: const Duration(milliseconds: 380),
+        reverseTransitionDuration: const Duration(milliseconds: 300),
+        pageBuilder: (ctx, a1, a2) => PatientDetailsScreen(
           patientUid: alert.patientId,
           patientName: alert.patientName,
         ),
+        transitionsBuilder: (ctx, a1, a2, child) => child,
       ),
     );
   }
 
-  Future<double> _adherenceFor(String uid) async {
-    final db = FirebaseFirestore.instance;
-    final today = DateTime.now();
-    int total = 0, taken = 0;
-
-    for (int i = 0; i < 7; i++) {
-      final day = today.subtract(Duration(days: i));
-      final snap = await db
-          .collection('users')
-          .doc(uid)
-          .collection('daily_intake')
-          .doc(_dateId(day))
-          .get();
-      final data = snap.data() ?? {};
-      for (final entry in data.values) {
-        if (entry is Map) {
-          total++;
-          if (entry['status'] == 'taken') taken++;
-        }
-      }
-    }
-    return total == 0 ? 1.0 : taken / total;
-  }
+  Future<double> _adherenceFor(String uid) =>
+      ReportService().getAdherenceLast7Days(uid);
 
   Future<List<_PatientStat>> _loadPatientStats() async {
     final db = FirebaseFirestore.instance;
@@ -793,9 +802,14 @@ class _AlertsSection extends StatelessWidget {
     final s = S.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    final cutoff = Timestamp.fromDate(
+      DateTime.now().subtract(const Duration(hours: 24)),
+    );
+
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FirebaseFirestore.instance
           .collection('alerts')
+          .where('createdAt', isGreaterThanOrEqualTo: cutoff)
           .orderBy('createdAt', descending: true)
           .snapshots(),
       builder: (context, snap) {
