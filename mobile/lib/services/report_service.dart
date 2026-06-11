@@ -228,6 +228,23 @@ class ReportService {
     );
   }
 
+  /// Returns adherence for the rolling last-7-days window using the same
+  /// medication-schedule-aware logic as the full report.
+  Future<double> getAdherenceLast7Days(String uid) async {
+    final now = DateTime.now();
+    final today = _dateOnly(now);
+    final start = today.subtract(const Duration(days: 6));
+    final meds = await _fetchAllMedications(uid);
+    final bucket = await _buildBucketForRange(
+      uid: uid,
+      start: start,
+      end: today,
+      now: now,
+      meds: meds,
+    );
+    return bucket.adherence;
+  }
+
   Future<ReportResult> getReport({
     required String uid,
     required ReportPeriodType periodType,
