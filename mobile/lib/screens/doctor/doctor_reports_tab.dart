@@ -12,6 +12,9 @@ import 'send_message_screen.dart';
 class DoctorReportsTab extends StatefulWidget {
   const DoctorReportsTab({super.key});
 
+  static final patientNotifier =
+      ValueNotifier<({String id, String name})?>(null);
+
   @override
   State<DoctorReportsTab> createState() => _DoctorReportsTabState();
 }
@@ -33,7 +36,27 @@ class _DoctorReportsTabState extends State<DoctorReportsTab> {
   @override
   void initState() {
     super.initState();
+    DoctorReportsTab.patientNotifier.addListener(_onPatientSignal);
     _fetchPatients();
+  }
+
+  @override
+  void dispose() {
+    DoctorReportsTab.patientNotifier.removeListener(_onPatientSignal);
+    super.dispose();
+  }
+
+  void _onPatientSignal() {
+    final p = DoctorReportsTab.patientNotifier.value;
+    if (p == null || !mounted) return;
+    DoctorReportsTab.patientNotifier.value = null;
+    setState(() {
+      _selectedPatientId = p.id;
+      _selectedPatientName = p.name;
+      _selectedDate = DateTime.now();
+      _lastReportData = null;
+    });
+    _loadReport();
   }
 
   Future<void> _fetchPatients() async {
@@ -63,15 +86,20 @@ class _DoctorReportsTabState extends State<DoctorReportsTab> {
     patients.sort((a, b) => a['name']!.compareTo(b['name']!));
 
     if (!mounted) return;
+    final pending = DoctorReportsTab.patientNotifier.value;
+    if (pending != null) DoctorReportsTab.patientNotifier.value = null;
     setState(() {
       _patients = patients;
       _fetchingPatients = false;
-      if (patients.isNotEmpty) {
+      if (pending != null) {
+        _selectedPatientId = pending.id;
+        _selectedPatientName = pending.name;
+      } else if (patients.isNotEmpty) {
         _selectedPatientId = patients[0]['id'];
         _selectedPatientName = patients[0]['name'];
       }
     });
-    if (patients.isNotEmpty) _loadReport();
+    if (_selectedPatientId != null) _loadReport();
   }
 
   void _loadReport() {
