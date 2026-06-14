@@ -64,8 +64,14 @@ class _DoctorNotificationsTabState extends State<DoctorNotificationsTab> {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
+    final cutoff = Timestamp.fromDate(
+      DateTime.now().subtract(const Duration(hours: 24)),
+    );
+
     _alertsSub = FirebaseFirestore.instance
         .collection('alerts')
+        .where('createdAt', isGreaterThanOrEqualTo: cutoff)
+        .orderBy('createdAt', descending: true)
         .snapshots()
         .listen((snap) {
       if (!mounted) return;
