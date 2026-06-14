@@ -6,7 +6,10 @@ import 'package:intl/intl.dart';
 
 import '../../l10n/app_strings.dart';
 import '../../models/medication.dart';
+import '../../services/report_service.dart';
 import '../patient/medication_form_screen.dart';
+import 'doctor_reports_tab.dart';
+import 'doctor_shell.dart';
 import 'send_message_screen.dart';
 
 // Models
@@ -113,28 +116,8 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
     return entries;
   }
 
-  Future<double> _adherenceFor() async {
-    final db = FirebaseFirestore.instance;
-    final today = DateTime.now();
-    int total = 0, taken = 0;
-
-    for (int i = 0; i < 7; i++) {
-      final day = today.subtract(Duration(days: i));
-      final snap = await db
-          .collection('users')
-          .doc(widget.patientUid)
-          .collection('daily_intake')
-          .doc(_dateId(day))
-          .get();
-      for (final entry in (snap.data() ?? {}).values) {
-        if (entry is Map) {
-          total++;
-          if (entry['status'] == 'taken') taken++;
-        }
-      }
-    }
-    return total == 0 ? 1.0 : taken / total;
-  }
+  Future<double> _adherenceFor() =>
+      ReportService().getAdherenceLast7Days(widget.patientUid);
 
   Future<void> _loadData() async {
     setState(() { _loading = true; _error = null; });
@@ -186,7 +169,7 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
   // actions
 
   Future<void> _addMedication() async {
-    await Navigator.push(
+    final savedName = await Navigator.push<String>(
       context,
       MaterialPageRoute(
         builder: (_) => MedicationFormScreen(
@@ -196,11 +179,28 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
         ),
       ),
     );
+    if (savedName != null && savedName.isNotEmpty) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(widget.patientUid)
+            .collection('inbox_notifications')
+            .add({
+          'type': 'medication_added',
+          'medication_name': savedName,
+          'title': 'Medication Added',
+          'body': savedName,
+          'read': false,
+          'event_time': FieldValue.serverTimestamp(),
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      } catch (_) {}
+    }
     _loadData();
   }
 
   Future<void> _editMedication(Medication med) async {
-    await Navigator.push(
+    final savedName = await Navigator.push<String>(
       context,
       MaterialPageRoute(
         builder: (_) => MedicationFormScreen(
@@ -211,20 +211,23 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
         ),
       ),
     );
-    // Notify patient that their medication was updated
-    try {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(widget.patientUid)
-          .collection('inbox_notifications')
-          .add({
-        'type': 'medication_updated',
-        'title': 'Medication Updated',
-        'body': 'Your doctor updated your "${med.name}" prescription.',
-        'read': false,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-    } catch (_) {}
+    if (savedName != null && savedName.isNotEmpty) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(widget.patientUid)
+            .collection('inbox_notifications')
+            .add({
+          'type': 'medication_updated',
+          'medication_name': savedName,
+          'title': 'Medication Updated',
+          'body': savedName,
+          'read': false,
+          'event_time': FieldValue.serverTimestamp(),
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      } catch (_) {}
+    }
     _loadData();
   }
 
@@ -284,9 +287,12 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
     );
   }
 
-  void _viewReport() => ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(S.of(context).viewReport)),
-      );
+  void _viewReport() {
+    DoctorReportsTab.patientNotifier.value =
+        (id: widget.patientUid, name: widget.patientName);
+    DoctorShell.tabNotifier.value = 3;
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
 
   // build
 
