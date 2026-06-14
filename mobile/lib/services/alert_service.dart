@@ -7,17 +7,24 @@ import 'package:intl/intl.dart';
 class AlertService {
   static const _baseUrl = 'http://172.20.10.3:8000';
 
-  /// Call after every dose status change. Fire-and-forget — never throws.
-  static Future<void> analyzeAndAlert() async {
+  // In-memory guard: prevents race-condition duplicates within a single session.
+  static final _inFlight = <String>{};
+
+  /// Fire-and-forget — never throws.
+  /// Pass [targetUid] to check a specific patient (doctor-side).
+  /// Omit it to check the currently logged-in patient.
+  static Future<void> analyzeAndAlert({String? targetUid}) async {
+    final uid = targetUid ?? FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    if (_inFlight.contains(uid)) return;
+    _inFlight.add(uid);
     try {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
-      if (uid == null) return;
 
       final firestore = FirebaseFirestore.instance;
 
       // ── Cooldown: max 1 alert per patient per day ─────────────────────────
-      final todayStart = DateTime.now();
-      final midnight = DateTime(todayStart.year, todayStart.month, todayStart.day);
+      final today = DateTime.now();
+      final midnight = DateTime(today.year, today.month, today.day);
 
       final existing = await firestore
           .collection('alerts')
@@ -26,7 +33,7 @@ class AlertService {
           .limit(1)
           .get();
 
-      if (existing.docs.isNotEmpty) return; // already alerted today
+      if (existing.docs.isNotEmpty) return;
 
       // ── Fetch patient profile ─────────────────────────────────────────────
       final userDoc = await firestore.collection('users').doc(uid).get();
@@ -75,49 +82,87 @@ class AlertService {
           }
         }
 
-        if (countingConsecutive && anyMissedToday) {
-          consecutiveMissed++;
-        }
+        if (countingConsecutive && anyMissedToday) consecutiveMissed++;
       }
 
-      if (total == 0) return; // no data yet, nothing to analyze
+      if (total == 0) return;
 
-      // ── Call backend /analyze ─────────────────────────────────────────────
-      final body = {
-        'patient_name': patientName,
-        'medications': medications,
-        'conditions': conditions,
-        'total_doses': total,
-        'taken_doses': taken,
-        'missed_doses': missed,
-        'consecutive_missed': consecutiveMissed,
-      };
+      // ── Try backend /analyze (5-second timeout) ───────────────────────────
+      bool handledByBackend = false;
+      try {
+        final response = await http
+            .post(
+              Uri.parse('$_baseUrl/analyze'),
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({
+                'patient_name': patientName,
+                'medications': medications,
+                'conditions': conditions,
+                'total_doses': total,
+                'taken_doses': taken,
+                'missed_doses': missed,
+                'consecutive_missed': consecutiveMissed,
+              }),
+            )
+            .timeout(const Duration(seconds: 5));
 
-      final response = await http.post(
-        Uri.parse('$_baseUrl/analyze'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(body),
-      );
+        if (response.statusCode == 200) {
+          handledByBackend = true;
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          if (data['should_alert'] == true) {
+            await _writeAlert(
+              firestore, uid, patientName,
+              data['message'] as String? ?? 'Medication adherence concern',
+              data['severity'] as String? ?? 'warning',
+            );
+          }
+        }
+      } catch (_) {
+        // Backend unreachable — fall through to client-side logic below
+      }
 
-      if (response.statusCode != 200) return;
+      if (handledByBackend) return;
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final shouldAlert = data['should_alert'] as bool? ?? false;
+      // ── Client-side fallback when backend is unavailable ──────────────────
+      // Same thresholds as the backend (chat.py /analyze rules)
+      final adherence = taken / total;
 
-      if (!shouldAlert) return;
-
-      // ── Write alert to Firestore ──────────────────────────────────────────
-      await firestore.collection('alerts').add({
-        'patientId': uid,
-        'patientName': patientName,
-        'type': data['message'] as String? ?? 'Medication adherence concern',
-        'severity': data['severity'] as String? ?? 'warning',
-        'createdAt': FieldValue.serverTimestamp(),
-        'isRead': false,
-      });
+      if (adherence < 0.5 || consecutiveMissed >= 3) {
+        await _writeAlert(
+          firestore, uid, patientName,
+          'Critical: ${(adherence * 100).round()}% adherence over the last days',
+          'critical',
+        );
+      } else if (adherence < 0.7 || consecutiveMissed >= 2) {
+        await _writeAlert(
+          firestore, uid, patientName,
+          'Low adherence: ${(adherence * 100).round()}% over the last days',
+          'warning',
+        );
+      }
+      // else: adherence >= 70% and no consecutive misses — no alert needed
     } catch (_) {
       // Silent — never interrupt the patient's dose logging flow
+    } finally {
+      _inFlight.remove(uid);
     }
+  }
+
+  static Future<void> _writeAlert(
+    FirebaseFirestore firestore,
+    String uid,
+    String patientName,
+    String message,
+    String severity,
+  ) async {
+    await firestore.collection('alerts').add({
+      'patientId': uid,
+      'patientName': patientName,
+      'type': message,
+      'severity': severity,
+      'createdAt': FieldValue.serverTimestamp(),
+      'isRead': false,
+    });
   }
 
   static Future<List<String>> _fetchMedicationNames(

@@ -70,7 +70,10 @@ class NotificationsScreenState extends State<NotificationsScreen> {
 
   IconData _iconForType(String type) {
     switch (type) {
-      case 'doctor':  return Icons.medical_information_outlined;
+      case 'doctor':
+      case 'medication_added':
+      case 'medication_updated':
+        return Icons.medical_information_outlined;
       case 'ai':      return Icons.auto_awesome;
       default:        return Icons.medication_outlined;
     }
@@ -165,7 +168,11 @@ class NotificationsScreenState extends State<NotificationsScreen> {
 
                   final displayTitle = type == 'med'
                       ? (medName.isNotEmpty ? s.timeToTake(medName) : s.medReminder)
-                      : (title.isEmpty ? s.doctorMessage : title);
+                      : type == 'medication_added'
+                          ? s.doctorAddedMedication(medName.isNotEmpty ? medName : title)
+                          : type == 'medication_updated'
+                              ? s.doctorUpdatedMedication(medName.isNotEmpty ? medName : title)
+                              : (title.isEmpty ? s.doctorMessage : title);
 
                   return InkWell(
                     borderRadius: BorderRadius.circular(18),
@@ -414,28 +421,27 @@ class NotificationsScreenState extends State<NotificationsScreen> {
                       },
                     )
                   else
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(title,
-                            style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                                color: onSheet)),
-                        const SizedBox(height: 12),
-                        Text(body,
-                            style: TextStyle(
-                                fontSize: 14,
-                                color: onSheet.withValues(alpha: 0.6),
-                                fontWeight: FontWeight.w500)),
-                        const SizedBox(height: 32),
-                        SizedBox(
-                          width: double.infinity,
-                          child: _closeBtn(
-                              s, onSheet, () => Navigator.pop(context)),
-                        ),
-                      ],
-                    ),
+                    Builder(builder: (_) {
+                      final medNameForSheet = (data['medication_name'] as String?) ?? body;
+                      final sheetTitle = type == 'medication_added'
+                          ? s.doctorAddedMedication(medNameForSheet)
+                          : type == 'medication_updated'
+                              ? s.doctorUpdatedMedication(medNameForSheet)
+                              : (title.isEmpty ? s.doctorMessage : title);
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _detailRow(Icons.medical_information_outlined,
+                              sheetTitle, onSheet),
+                          const SizedBox(height: 32),
+                          SizedBox(
+                            width: double.infinity,
+                            child: _closeBtn(
+                                s, onSheet, () => Navigator.pop(context)),
+                          ),
+                        ],
+                      );
+                    }),
                 ],
               ),
             ),

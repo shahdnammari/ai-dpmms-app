@@ -128,6 +128,7 @@ class NotificationService {
               data: {
                 'type': 'med',
                 'title': 'Time to take $medName',
+                'medication_name': medName,
                 'body': 'Scheduled at ${times[ti]}',
                 'medication_id': medDocId,
                 'event_time': Timestamp.fromDate(when),
@@ -240,6 +241,7 @@ class NotificationService {
           .set({
         'type': 'med',
         'title': 'Time to take $medName',
+        'medication_name': medName,
         'body': 'Scheduled at $timeString',
         'medication_id': medDocId,
         'event_time': Timestamp.fromDate(when),
