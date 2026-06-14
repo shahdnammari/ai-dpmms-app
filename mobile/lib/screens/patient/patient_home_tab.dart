@@ -143,6 +143,33 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
     } else if (selected == 'help') {
       _showHelpSupportSheet(s);
     } else if (selected == 'logout') {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text(s.logoutConfirmTitle,
+              style: const TextStyle(fontWeight: FontWeight.w800)),
+          content: Text(s.logoutConfirmMsg),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(s.cancel,
+                  style: const TextStyle(color: Color(0xFF3B82F6))),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFDC2626),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(s.logoutButton),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
       await FirebaseAuth.instance.signOut();
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
@@ -605,7 +632,6 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
                                                 doseKey: doseKey,
                                                 status: 'taken',
                                               );
-                                              AlertService.analyzeAndAlert();
                                             }
                                           },
                                         ),
