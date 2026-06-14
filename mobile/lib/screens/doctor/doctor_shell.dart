@@ -13,6 +13,8 @@ import 'doctor_reports_tab.dart';
 class DoctorShell extends StatefulWidget {
   const DoctorShell({super.key});
 
+  static final tabNotifier = ValueNotifier<int>(-1);
+
   @override
   State<DoctorShell> createState() => _DoctorShellState();
 }
@@ -25,6 +27,42 @@ class _DoctorShellState extends State<DoctorShell> {
     if (hour < 12) return s.goodMorning;
     if (hour < 18) return s.goodAfternoon;
     return s.goodEvening;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    DoctorShell.tabNotifier.addListener(_onTabSignal);
+    _deleteOldAlerts();
+  }
+
+  Future<void> _deleteOldAlerts() async {
+    try {
+      final cutoff = Timestamp.fromDate(
+        DateTime.now().subtract(const Duration(hours: 24)),
+      );
+      final snap = await FirebaseFirestore.instance
+          .collection('alerts')
+          .where('createdAt', isLessThan: cutoff)
+          .get();
+      for (final doc in snap.docs) {
+        doc.reference.delete();
+      }
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    DoctorShell.tabNotifier.removeListener(_onTabSignal);
+    super.dispose();
+  }
+
+  void _onTabSignal() {
+    final i = DoctorShell.tabNotifier.value;
+    if (i >= 0 && mounted) {
+      setState(() => _index = i);
+      DoctorShell.tabNotifier.value = -1;
+    }
   }
 
   void _onTap(int i) {
