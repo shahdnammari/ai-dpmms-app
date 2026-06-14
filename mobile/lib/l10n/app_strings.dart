@@ -222,6 +222,16 @@ class S {
           : 'Time to take $name';
   String scheduledAt(String t) =>
       _ar ? 'مجدول في $t' : _he ? 'מתוזמן ב-$t' : 'Scheduled at $t';
+  String doctorAddedMedication(String name) => _ar
+      ? 'أضاف طبيبك "$name" إلى أدويتك'
+      : _he
+          ? 'הרופא שלך הוסיף "$name" לתרופות שלך'
+          : 'Your doctor added "$name" to your medications';
+  String doctorUpdatedMedication(String name) => _ar
+      ? 'قام طبيبك بتحديث وصفة "$name"'
+      : _he
+          ? 'הרופא שלך עדכן את מרשם "$name" שלך'
+          : 'Your doctor updated your "$name" prescription';
 
   // ── Notifications ────────────────────────────────────────────────
   String get noNotifications =>
@@ -403,4 +413,187 @@ class S {
       _t('Select patient', 'اختر مريضاً', 'בחר מטופל');
   String removedPatient(String name) =>
       _ar ? '"$name" تمت إزالته' : _he ? '"$name" הוסר' : '"$name" removed';
+
+  // ── Role select screen ───────────────────────────────────────────
+  String get getStarted => _t('Get Started', 'ابدأ الآن', 'התחל');
+  String get chooseOptionToContinue => _t(
+    'Choose an option to continue',
+    'اختر خياراً للمتابعة',
+    'בחר אפשרות להמשיך',
+  );
+  String get swipeUpToStart =>
+      _t('Swipe up to get started', 'اسحب للأعلى للبدء', 'החלק למעלה להתחלה');
+  String get patientRoleSubtitle => _t(
+    'Track medications & stay on schedule',
+    'تتبع الأدوية والتزم بالجدول',
+    'עקוב אחר תרופות והישאר בלוח הזמנים',
+  );
+  String get doctorRoleSubtitle => _t(
+    'Monitor patients & manage care',
+    'راقب المرضى وأدر الرعاية',
+    'עקוב אחר מטופלים ונהל טיפול',
+  );
+
+  // ── Login & Register ──────────────────────────────────────────────
+  String get loginTitle => _t('Login', 'تسجيل الدخول', 'כניסה');
+  String get welcomeBack => _t('Welcome Back', 'مرحباً مجدداً', 'נעים מאוד שחזרת');
+  String get loginSubtitle => _t(
+    'Login to manage your medications',
+    'سجّل دخولك لإدارة أدويتك',
+    'היכנס לנהל את התרופות שלך',
+  );
+  String get password => _t('Password', 'كلمة المرور', 'סיסמה');
+  String get enterEmailHint =>
+      _t('Enter your email', 'أدخل بريدك الإلكتروني', 'הזן את האימייל שלך');
+  String get enterPasswordHint =>
+      _t('Enter your password', 'أدخل كلمة مرورك', 'הזן את הסיסמה שלך');
+  String get forgotPassword =>
+      _t('Forgot password?', 'هل نسيت كلمة المرور؟', 'שכחת סיסמה?');
+  String get dontHaveAccount =>
+      _t("Don't have an account?", 'ليس لديك حساب؟', 'אין לך חשבון?');
+  String get register => _t('Register', 'تسجيل', 'הרשמה');
+  String get createAccount => _t('Create Account', 'إنشاء حساب', 'צור חשבון');
+  String get registerAs => _t('Register as', 'سجّل كـ', 'הירשם בתור');
+  String get stepBasicInfo =>
+      _t('Basic Info', 'المعلومات الأساسية', 'מידע בסיסי');
+  String get stepHealthInfo =>
+      _t('Health Info', 'معلومات صحية', 'מידע בריאותי');
+  String get createPatientSubtitle => _t(
+    "Let's start with your basic info",
+    'لنبدأ بمعلوماتك الأساسية',
+    'בואו נתחיל עם המידע הבסיסי שלך',
+  );
+  String get createDoctorSubtitle =>
+      _t('Create your doctor account', 'أنشئ حساب طبيبك', 'צור את חשבון הרופא שלך');
+  String get enterNameHint =>
+      _t('Enter your name', 'أدخل اسمك', 'הזן את שמך');
+  String get minPasswordHint =>
+      _t('Min 6 characters', '٦ أحرف على الأقل', 'לפחות 6 תווים');
+  String get medicalLicenseOptional => _t(
+    'Medical License ID (optional)',
+    'رقم الترخيص الطبي (اختياري)',
+    'מספר רישיון רפואי (אופציונלי)',
+  );
+  String get enterLicenseHint =>
+      _t('Enter license number', 'أدخل رقم الترخيص', 'הזן מספר רישיון');
+  String get healthInfoSubtitle =>
+      _t('Tell us about your health', 'أخبرنا عن صحتك', 'ספר לנו על בריאותך');
+  String get dateOfBirth =>
+      _t('Date of Birth', 'تاريخ الميلاد', 'תאריך לידה');
+  String get medicalConditionsOptional => _t(
+    'Medical Conditions (optional)',
+    'الحالات الطبية (اختياري)',
+    'מצבים רפואיים (אופציונלי)',
+  );
+  String get selectAllThatApply => _t(
+    'Select all that apply',
+    'اختر كل ما ينطبق',
+    'בחר את כל האפשרויות המתאימות',
+  );
+  String get nextBtn => _t('Next', 'التالي', 'הבא');
+  String get alreadyHaveAccount =>
+      _t('Already have an account?', 'هل لديك حساب بالفعل؟', 'כבר יש לך חשבון?');
+  String get accountCreated => _t(
+    'Account created successfully',
+    'تم إنشاء الحساب بنجاح',
+    'החשבון נוצר בהצלחה',
+  );
+  // Auth validation & error messages
+  String get authEmptyFields => _t(
+    'Please fill all fields.',
+    'يرجى ملء جميع الحقول.',
+    'אנא מלא את כל השדות.',
+  );
+  String get authEnterEmailAndPassword => _t(
+    'Please enter email and password.',
+    'يرجى إدخال البريد الإلكتروني وكلمة المرور.',
+    'אנא הזן אימייל וסיסמה.',
+  );
+  String get authInvalidEmailFormat => _t(
+    'Enter a valid email address.',
+    'أدخل عنوان بريد إلكتروني صالح.',
+    'הזן כתובת אימייל תקינה.',
+  );
+  String get authWeakPassword => _t(
+    'Password must be at least 6 characters.',
+    'يجب أن تكون كلمة المرور 6 أحرف على الأقل.',
+    'הסיסמה חייבת להכיל לפחות 6 תווים.',
+  );
+  String get authSelectGender => _t(
+    'Please select your gender.',
+    'يرجى اختيار جنسك.',
+    'אנא בחר את המין שלך.',
+  );
+  String get authSelectBirthday => _t(
+    'Please select your birthday.',
+    'يرجى اختيار تاريخ ميلادك.',
+    'אנא בחר את תאריך הלידה שלך.',
+  );
+  String get authUserNotFound => _t(
+    'No account found for this email.',
+    'لم يتم العثور على حساب لهذا البريد.',
+    'לא נמצא חשבון עבור אימייל זה.',
+  );
+  String get authWrongPassword =>
+      _t('Wrong password.', 'كلمة المرور خاطئة.', 'סיסמה שגויה.');
+  String get authInvalidCredential => _t(
+    'Invalid email or password.',
+    'بريد إلكتروني أو كلمة مرور غير صالحين.',
+    'אימייל או סיסמה לא תקינים.',
+  );
+  String get authUserDisabled => _t(
+    'This user has been disabled.',
+    'تم تعطيل هذا المستخدم.',
+    'משתמש זה הושבת.',
+  );
+  String get authTooManyRequests => _t(
+    'Too many attempts. Try again later.',
+    'محاولات كثيرة جداً. حاول لاحقاً.',
+    'יותר מדי ניסיונות. נסה שוב מאוחר יותר.',
+  );
+  String get authLoginFailed =>
+      _t('Login failed.', 'فشل تسجيل الدخول.', 'הכניסה נכשלה.');
+  String get authEmailInUse => _t(
+    'This email is already registered.',
+    'هذا البريد الإلكتروني مسجل بالفعل.',
+    'אימייל זה כבר רשום.',
+  );
+  String get authWeakPasswordShort => _t(
+    'Password is too weak (min 6 chars).',
+    'كلمة المرور ضعيفة جداً (6 أحرف على الأقل).',
+    'הסיסמה חלשה מדי (מינימום 6 תווים).',
+  );
+  String get authProfileNotFound => _t(
+    'Profile not found. Please register again.',
+    'الملف الشخصي غير موجود. يرجى التسجيل مرة أخرى.',
+    'הפרופיל לא נמצא. אנא הירשם שוב.',
+  );
+  String get authInvalidRole => _t(
+    'Invalid role. Please register again.',
+    'دور غير صالح. يرجى التسجيل مرة أخرى.',
+    'תפקיד לא תקין. אנא הירשם שוב.',
+  );
+  String get authSomethingWentWrong => _t(
+    'Something went wrong. Please try again.',
+    'حدث خطأ ما. يرجى المحاولة مرة أخرى.',
+    'משהו השתבש. אנא נסה שוב.',
+  );
+  String get authRegistrationFailed => _t(
+    'Registration failed.',
+    'فشل التسجيل.',
+    'ההרשמה נכשלה.',
+  );
+  String conditionName(String key) {
+    switch (key) {
+      case 'Diabetes': return _t('Diabetes', 'السكري', 'סוכרת');
+      case 'Hypertension': return _t('Hypertension', 'ارتفاع ضغط الدم', 'יתר לחץ דם');
+      case 'Heart Disease': return _t('Heart Disease', 'أمراض القلب', 'מחלת לב');
+      case 'Asthma': return _t('Asthma', 'الربو', 'אסתמה');
+      case 'Kidney Disease': return _t('Kidney Disease', 'أمراض الكلى', 'מחלת כליות');
+      case 'Arthritis': return _t('Arthritis', 'التهاب المفاصل', 'דלקת פרקים');
+      case 'Thyroid Disorder': return _t('Thyroid Disorder', 'اضطراب الغدة الدرقية', 'הפרעת בלוטת התריס');
+      case 'High Cholesterol': return _t('High Cholesterol', 'ارتفاع الكوليسترول', 'כולסטרול גבוה');
+      default: return key;
+    }
+  }
 }
