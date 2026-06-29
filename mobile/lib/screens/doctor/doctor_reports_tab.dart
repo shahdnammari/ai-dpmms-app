@@ -326,11 +326,16 @@ class _DoctorReportsTabState extends State<DoctorReportsTab> {
     if (_selectedPatientId == null || _selectedPatientName == null) return;
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => PatientDetailsScreen(
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.transparent,
+        transitionDuration: const Duration(milliseconds: 380),
+        reverseTransitionDuration: const Duration(milliseconds: 300),
+        pageBuilder: (ctx, a1, a2) => PatientDetailsScreen(
           patientUid: _selectedPatientId!,
           patientName: _selectedPatientName!,
         ),
+        transitionsBuilder: (ctx, a1, a2, child) => child,
       ),
     );
   }
