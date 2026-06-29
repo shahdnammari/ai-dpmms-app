@@ -241,8 +241,10 @@ class MedicationsService {
     }
 
     if (_isSameDay(start, eff)) {
-      
       await _col(uid).doc(med.id).delete();
+      unawaited(NotificationService.instance.cancelMedicationNotifications(
+        medDocId: med.id,
+      ));
       return;
     }
 
@@ -251,22 +253,23 @@ class MedicationsService {
       throw Exception('Invalid delete range');
     }
 
-    
-
     await _col(uid).doc(med.id).update({
       'endDate': Timestamp.fromDate(_dateOnly(prevEnd)),
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
     if (med.reminderEnabled) {
-      await NotificationService.instance.scheduleMedicationRange(
+      // Cancel all existing notifications first, then reschedule only within valid range
+      unawaited(NotificationService.instance.cancelMedicationNotifications(
+        medDocId: med.id,
+      ).then((_) => NotificationService.instance.scheduleMedicationRange(
         uid: uid,
         medDocId: med.id,
         medName: med.name,
         startDate: start,
         endDate: prevEnd,
         times: med.times,
-      );
+      )));
     }
   }
 

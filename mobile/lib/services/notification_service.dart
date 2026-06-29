@@ -170,6 +170,10 @@ class NotificationService {
     }
   }
 
+  Future<void> cancelAll() async {
+    await _plugin.cancelAll();
+  }
+
   Future<void> cancelMedicationNotifications({
     required String medDocId,
   }) async {
