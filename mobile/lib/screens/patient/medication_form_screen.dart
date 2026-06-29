@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../l10n/app_strings.dart';
 import '../../models/medication.dart';
@@ -259,11 +260,25 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
     if (ok != true) return;
 
     try {
-      await _service.deleteMedicationForFuture(
-        uid: widget.uid,
-        med: widget.existing!,
-        effectiveDate: widget.effectiveDate,
-      );
+      final med = widget.existing!;
+      final endDate = med.endDate;
+      final eff = widget.effectiveDate;
+
+      if (endDate != null && eff.isAfter(endDate)) {
+        // Medication already ended — remove the document directly.
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(widget.uid)
+            .collection('medications')
+            .doc(med.id)
+            .delete();
+      } else {
+        await _service.deleteMedicationForFuture(
+          uid: widget.uid,
+          med: med,
+          effectiveDate: eff,
+        );
+      }
       if (!mounted) return;
       Navigator.pop(context);
     } catch (e) {

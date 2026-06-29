@@ -275,6 +275,49 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
     }
   }
 
+  Future<void> _deleteMedication(Medication med) async {
+    final s = S.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(s.deleteMedTitle,
+            style: const TextStyle(fontWeight: FontWeight.w800)),
+        content: Text(s.deleteConfirm(med.name)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(s.cancel),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFFEF4444)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(s.delete,
+                style: const TextStyle(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.patientUid)
+          .collection('medications')
+          .doc(med.id)
+          .delete();
+      _loadData();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
+  }
+
   void _sendMessage() {
     Navigator.push(
       context,
@@ -551,6 +594,7 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
       itemBuilder: (_, i) => _MedCard(
         medActivity: visible[i],
         onEdit: () => _editMedication(visible[i].med),
+        onDelete: () => _deleteMedication(visible[i].med),
         formatDate: _formatDate,
         formatDays: (days) => _formatDays(days, s),
         formatTimes: _formatTimes,
@@ -591,6 +635,7 @@ class _BottomAction extends StatelessWidget {
 class _MedCard extends StatelessWidget {
   final _MedActivity medActivity;
   final VoidCallback onEdit;
+  final VoidCallback onDelete;
   final String Function(DateTime) formatDate;
   final String Function(List<String>) formatDays;
   final String Function(List<String>) formatTimes;
@@ -598,6 +643,7 @@ class _MedCard extends StatelessWidget {
   const _MedCard({
     required this.medActivity,
     required this.onEdit,
+    required this.onDelete,
     required this.formatDate,
     required this.formatDays,
     required this.formatTimes,
@@ -639,6 +685,16 @@ class _MedCard extends StatelessWidget {
                   ),
                 ),
               ),
+              InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: onDelete,
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(Icons.delete_outline,
+                      color: Color(0xFFEF4444), size: 18),
+                ),
+              ),
+              const SizedBox(width: 4),
               InkWell(
                 borderRadius: BorderRadius.circular(8),
                 onTap: onEdit,
