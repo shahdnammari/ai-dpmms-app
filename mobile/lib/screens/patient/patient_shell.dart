@@ -1,9 +1,12 @@
+import 'dart:async' show unawaited;
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../l10n/app_strings.dart';
 import '../../services/app_refresh.dart';
+import '../../services/medications_service.dart';
+import '../../services/notification_service.dart';
 import '../patient/patient_home_tab.dart';
 import '../patient/medications_list_screen.dart';
 import '../patient/notifications_screen.dart';
@@ -19,6 +22,34 @@ class PatientShell extends StatefulWidget {
 
 class _PatientShellState extends State<PatientShell> {
   int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _resyncNotifications();
+  }
+
+  Future<void> _resyncNotifications() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    await NotificationService.instance.cancelAll();
+
+    final now = DateTime.now();
+    final meds = await MedicationsService().watchMedications(user.uid).first;
+    for (final med in meds) {
+      if (!med.reminderEnabled) continue;
+      if (med.endDate != null && med.endDate!.isBefore(now)) continue;
+      unawaited(NotificationService.instance.scheduleMedicationRange(
+        uid: user.uid,
+        medDocId: med.id,
+        medName: med.name,
+        startDate: med.startDate,
+        endDate: med.endDate,
+        times: med.times,
+      ));
+    }
+  }
 
   String _greeting(S s) {
     final hour = DateTime.now().hour;
