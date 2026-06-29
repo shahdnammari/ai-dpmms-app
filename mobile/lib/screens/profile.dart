@@ -19,6 +19,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _customConditionCtrl = TextEditingController();
 
   DateTime? _selectedBirthday;
   String? _selectedGender;
@@ -62,7 +63,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _customConditionCtrl.dispose();
     super.dispose();
+  }
+
+  void _addCustomCondition() {
+    final val = _customConditionCtrl.text.trim();
+    if (val.isEmpty) return;
+    if (!_selectedConditions.contains(val)) {
+      setState(() => _selectedConditions.add(val));
+    }
+    _customConditionCtrl.clear();
   }
 
   Future<void> _loadProfile() async {
@@ -582,47 +593,137 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: _commonConditions.map((condition) {
-              final selected = _selectedConditions.contains(condition);
-              return FilterChip(
-                label: Text(condition,
-                    style: const TextStyle(fontSize: 13)),
-                selected: selected,
-                onSelected: (val) {
-                  setState(() {
-                    if (val) {
-                      _selectedConditions.add(condition);
-                    } else {
-                      _selectedConditions.remove(condition);
-                    }
-                  });
-                },
-                selectedColor: isDark
-                    ? const Color(0xFF1E3A8A).withValues(alpha: 0.3)
-                    : const Color(0xFFDBEAFE),
-                checkmarkColor: isDark
-                    ? const Color(0xFF93C5FD)
-                    : const Color(0xFF1E3A8A),
-                side: BorderSide(
-                  color: selected
-                      ? const Color(0xFF1E3A8A)
-                      : (isDark
-                          ? Colors.grey.shade600
-                          : Colors.grey.shade300),
+            children: [
+              ..._commonConditions.map((condition) {
+                final selected = _selectedConditions.contains(condition);
+                return FilterChip(
+                  label: Text(condition,
+                      style: const TextStyle(fontSize: 13)),
+                  selected: selected,
+                  onSelected: (val) {
+                    setState(() {
+                      if (val) {
+                        _selectedConditions.add(condition);
+                      } else {
+                        _selectedConditions.remove(condition);
+                      }
+                    });
+                  },
+                  selectedColor: isDark
+                      ? const Color(0xFF1E3A8A).withValues(alpha: 0.3)
+                      : const Color(0xFFDBEAFE),
+                  checkmarkColor: isDark
+                      ? const Color(0xFF93C5FD)
+                      : const Color(0xFF1E3A8A),
+                  side: BorderSide(
+                    color: selected
+                        ? const Color(0xFF1E3A8A)
+                        : (isDark
+                            ? Colors.grey.shade600
+                            : Colors.grey.shade300),
+                  ),
+                  labelStyle: TextStyle(
+                    color: selected
+                        ? (isDark
+                            ? const Color(0xFF93C5FD)
+                            : const Color(0xFF1E3A8A))
+                        : (isDark
+                            ? Colors.grey.shade400
+                            : Colors.grey.shade700),
+                    fontWeight:
+                        selected ? FontWeight.w700 : FontWeight.w400,
+                  ),
+                );
+              }),
+              ..._selectedConditions
+                  .where((c) => !_commonConditions.contains(c))
+                  .map((c) => Chip(
+                        label: Text(c,
+                            style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700)),
+                        onDeleted: () =>
+                            setState(() => _selectedConditions.remove(c)),
+                        backgroundColor: isDark
+                            ? const Color(0xFF1E3A8A).withValues(alpha: 0.3)
+                            : const Color(0xFFDBEAFE),
+                        deleteIconColor: isDark
+                            ? const Color(0xFF93C5FD)
+                            : const Color(0xFF1E3A8A),
+                        labelStyle: TextStyle(
+                          color: isDark
+                              ? const Color(0xFF93C5FD)
+                              : const Color(0xFF1E3A8A),
+                        ),
+                        side: const BorderSide(color: Color(0xFF1E3A8A)),
+                      )),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _customConditionCtrl,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => _addCustomCondition(),
+                  style: TextStyle(
+                    color: Theme.of(ctx).colorScheme.onSurface,
+                    fontSize: 14,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: S.of(ctx).customConditionHint,
+                    hintStyle: TextStyle(
+                      color: isDark
+                          ? Colors.white38
+                          : const Color(0xFF94A3B8),
+                    ),
+                    filled: true,
+                    fillColor: isDark
+                        ? const Color(0xFF1E1E2E)
+                        : const Color(0xFFF8FAFC),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                          color: isDark
+                              ? Colors.grey.shade600
+                              : Colors.grey.shade300),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                          color: isDark
+                              ? Colors.grey.shade600
+                              : Colors.grey.shade300),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                          color: Color(0xFF1E3A8A)),
+                    ),
+                  ),
                 ),
-                labelStyle: TextStyle(
-                  color: selected
-                      ? (isDark
-                          ? const Color(0xFF93C5FD)
-                          : const Color(0xFF1E3A8A))
-                      : (isDark
-                          ? Colors.grey.shade400
-                          : Colors.grey.shade700),
-                  fontWeight:
-                      selected ? FontWeight.w700 : FontWeight.w400,
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 46,
+                height: 46,
+                child: ElevatedButton(
+                  onPressed: _addCustomCondition,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1E3A8A),
+                    padding: EdgeInsets.zero,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                  child: const Icon(Icons.add,
+                      color: Colors.white, size: 22),
                 ),
-              );
-            }).toList(),
+              ),
+            ],
           ),
           const SizedBox(height: 24),
           Row(

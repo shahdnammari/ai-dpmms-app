@@ -22,6 +22,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   final _doctorLicenseCtrl = TextEditingController();
+  final _customConditionCtrl = TextEditingController();
 
   String? _gender;
   DateTime? _birthday;
@@ -52,7 +53,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailCtrl.dispose();
     _passCtrl.dispose();
     _doctorLicenseCtrl.dispose();
+    _customConditionCtrl.dispose();
     super.dispose();
+  }
+
+  void _addCustomCondition() {
+    final val = _customConditionCtrl.text.trim();
+    if (val.isEmpty) return;
+    if (!_conditions.contains(val)) {
+      setState(() => _conditions.add(val));
+    }
+    _customConditionCtrl.clear();
   }
 
   String? _validateStep1(S s) {
@@ -497,42 +508,117 @@ class _RegisterScreenState extends State<RegisterScreen> {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: _commonConditions.map((c) {
-            final selected = _conditions.contains(c);
-            return FilterChip(
-              label: Text(s.conditionName(c),
-                  style: const TextStyle(fontSize: 13)),
-              selected: selected,
-              onSelected: (val) => setState(() {
-                if (val) {
-                  _conditions.add(c);
-                } else {
-                  _conditions.remove(c);
-                }
-              }),
-              backgroundColor: isDark ? const Color(0xFF2A2A4A) : Colors.white,
-              selectedColor: isDark
-                  ? const Color(0xFF1E3A8A).withValues(alpha: 0.5)
-                  : const Color(0xFFDBEAFE),
-              checkmarkColor: _blue,
-              side: BorderSide(
-                color: selected
-                    ? _blue
-                    : (isDark
-                        ? const Color(0xFF3A3A5C)
-                        : const Color(0xFFCBD5E1)),
+          children: [
+            ..._commonConditions.map((c) {
+              final selected = _conditions.contains(c);
+              return FilterChip(
+                label: Text(s.conditionName(c),
+                    style: const TextStyle(fontSize: 13)),
+                selected: selected,
+                onSelected: (val) => setState(() {
+                  if (val) {
+                    _conditions.add(c);
+                  } else {
+                    _conditions.remove(c);
+                  }
+                }),
+                backgroundColor:
+                    isDark ? const Color(0xFF2A2A4A) : Colors.white,
+                selectedColor: isDark
+                    ? const Color(0xFF1E3A8A).withValues(alpha: 0.5)
+                    : const Color(0xFFDBEAFE),
+                checkmarkColor: _blue,
+                side: BorderSide(
+                  color: selected
+                      ? _blue
+                      : (isDark
+                          ? const Color(0xFF3A3A5C)
+                          : const Color(0xFFCBD5E1)),
+                ),
+                labelStyle: TextStyle(
+                  color: selected
+                      ? (isDark ? Colors.white : _blue)
+                      : (isDark
+                          ? Colors.white70
+                          : const Color(0xFF475569)),
+                  fontWeight:
+                      selected ? FontWeight.w700 : FontWeight.w400,
+                ),
+              );
+            }),
+            ..._conditions
+                .where((c) => !_commonConditions.contains(c))
+                .map((c) => Chip(
+                      label: Text(c,
+                          style: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w700)),
+                      onDeleted: () =>
+                          setState(() => _conditions.remove(c)),
+                      backgroundColor: isDark
+                          ? const Color(0xFF1E3A8A).withValues(alpha: 0.5)
+                          : const Color(0xFFDBEAFE),
+                      deleteIconColor:
+                          isDark ? Colors.white70 : _blue,
+                      labelStyle: TextStyle(
+                          color: isDark ? Colors.white : _blue),
+                      side: BorderSide(color: _blue),
+                    )),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _customConditionCtrl,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _addCustomCondition(),
+                style: TextStyle(
+                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: s.customConditionHint,
+                  hintStyle: TextStyle(
+                      color: isDark
+                          ? Colors.white38
+                          : const Color(0xFF94A3B8)),
+                  filled: true,
+                  fillColor: fieldFill,
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: borderColor),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: borderColor),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide:
+                        const BorderSide(color: Color(0xFF3B82F6)),
+                  ),
+                ),
               ),
-              labelStyle: TextStyle(
-                color: selected
-                    ? (isDark ? Colors.white : _blue)
-                    : (isDark
-                        ? Colors.white70
-                        : const Color(0xFF475569)),
-                fontWeight:
-                    selected ? FontWeight.w700 : FontWeight.w400,
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 46,
+              height: 46,
+              child: ElevatedButton(
+                onPressed: _addCustomCondition,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _blue,
+                  padding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+                child: const Icon(Icons.add, color: Colors.white, size: 22),
               ),
-            );
-          }).toList(),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
       ],

@@ -490,6 +490,11 @@ class S {
     'اختر كل ما ينطبق',
     'בחר את כל האפשרויות המתאימות',
   );
+  String get customConditionHint => _t(
+    'Type your condition...',
+    'اكتب حالتك الصحية...',
+    'הקלד את מצבך...',
+  );
   String get nextBtn => _t('Next', 'التالي', 'הבא');
   String get alreadyHaveAccount =>
       _t('Already have an account?', 'هل لديك حساب بالفعل؟', 'כבר יש לך חשבון?');
