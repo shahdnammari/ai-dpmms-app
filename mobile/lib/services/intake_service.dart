@@ -81,9 +81,9 @@ class IntakeService {
 
     // Update lastActivity on the user document so doctors can see
     // when a patient last logged a dose.
-    await _db.collection('users').doc(uid).update({
+    await _db.collection('users').doc(uid).set({
       'lastActivity': FieldValue.serverTimestamp(),
-    });
+    }, SetOptions(merge: true));
   }
 
   /// Pending
