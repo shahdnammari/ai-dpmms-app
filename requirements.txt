@@ -24,3 +24,5 @@ httpx
 python-dotenv
 
 itsdangerous
+python-jose[cryptography]
+anthropic
